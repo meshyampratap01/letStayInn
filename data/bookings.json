@@ -1,0 +1,64 @@
+[
+  {
+    "id": "e0bfceb3-b892-4a8a-94fe-b5fa06d4e41b",
+    "user_id": "5987fdfa-ffd3-490a-9335-b6afe3cf11a8",
+    "room_id": "r2",
+    "room_num": 0,
+    "check_in": "2025-08-19T00:00:00Z",
+    "check_out": "2025-08-20T00:00:00Z",
+    "status": "Cancelled",
+    "food_req": false,
+    "clean_req": false,
+    "feedback_id": null
+  },
+  {
+    "id": "acf7289a-2507-432c-9366-dc5b47559823",
+    "user_id": "5987fdfa-ffd3-490a-9335-b6afe3cf11a8",
+    "room_id": "r10",
+    "room_num": 0,
+    "check_in": "2025-08-19T00:00:00Z",
+    "check_out": "2025-08-20T00:00:00Z",
+    "status": "Booked",
+    "food_req": false,
+    "clean_req": false,
+    "feedback_id": null
+  },
+  {
+    "id": "4a62d0e5-7d5e-4bf3-b589-0d7431c67e9a",
+    "user_id": "c923f6b8-cbb8-4503-85e2-c7c8fad057e9",
+    "room_id": "r2",
+    "room_num": 0,
+    "check_in": "2025-08-19T00:00:00Z",
+    "check_out": "2025-08-20T00:00:00Z",
+    "status": "Cancelled",
+    "food_req": false,
+    "clean_req": false,
+    "feedback_id": [
+      "0a60fc72-a953-4873-bd3b-6f0c353f2823"
+    ]
+  },
+  {
+    "id": "f8be5073-3462-4a5f-9b3a-bc2d22104b25",
+    "user_id": "c923f6b8-cbb8-4503-85e2-c7c8fad057e9",
+    "room_id": "r2",
+    "room_num": 0,
+    "check_in": "2004-08-19T00:00:00Z",
+    "check_out": "2004-08-20T00:00:00Z",
+    "status": "Cancelled",
+    "food_req": false,
+    "clean_req": false,
+    "feedback_id": null
+  },
+  {
+    "id": "9105fe24-151a-4a98-987c-51e9c53d565a",
+    "user_id": "c923f6b8-cbb8-4503-85e2-c7c8fad057e9",
+    "room_id": "r2",
+    "room_num": 102,
+    "check_in": "2025-08-19T00:00:00Z",
+    "check_out": "2025-08-20T00:00:00Z",
+    "status": "Cancelled",
+    "food_req": false,
+    "clean_req": false,
+    "feedback_id": null
+  }
+]

@@ -1,0 +1,82 @@
+[
+  {
+    "id": "r1",
+    "number": 101,
+    "type": "Single",
+    "price": 1000,
+    "is_available": false,
+    "description": "Cozy single room"
+  },
+  {
+    "id": "r2",
+    "number": 102,
+    "type": "Double",
+    "price": 1800,
+    "is_available": true,
+    "description": "Spacious double room"
+  },
+  {
+    "id": "r3",
+    "number": 201,
+    "type": "Suite",
+    "price": 3000,
+    "is_available": true,
+    "description": "Luxury suite"
+  },
+  {
+    "id": "r4",
+    "number": 302,
+    "type": "Presidential",
+    "price": 12000,
+    "is_available": true,
+    "description": "Ultra luxury experience"
+  },
+  {
+    "id": "r5",
+    "number": 103,
+    "type": "Single",
+    "price": 1100,
+    "is_available": true,
+    "description": "Quiet room with courtyard view"
+  },
+  {
+    "id": "r6",
+    "number": 202,
+    "type": "Double",
+    "price": 1900,
+    "is_available": true,
+    "description": "Ideal for couples"
+  },
+  {
+    "id": "r7",
+    "number": 203,
+    "type": "Suite",
+    "price": 3200,
+    "is_available": true,
+    "description": "Suite with workspace"
+  },
+  {
+    "id": "r8",
+    "number": 301,
+    "type": "Deluxe",
+    "price": 4000,
+    "is_available": true,
+    "description": "Deluxe with balcony"
+  },
+  {
+    "id": "r9",
+    "number": 303,
+    "type": "Single",
+    "price": 1050,
+    "is_available": true,
+    "description": "Budget-friendly single room"
+  },
+  {
+    "id": "r10",
+    "number": 401,
+    "type": "Suite",
+    "price": 3500,
+    "is_available": false,
+    "description": "Top-floor suite with city view"
+  }
+]
