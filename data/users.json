@@ -4,7 +4,7 @@
     "name": "shyam",
     "email": "shyam@gmail.com",
     "password": "$2a$10$2sWMj/lrGJ.4Y/zdvUPpeexqadQwzCyf9zsoB/Uqe1KMGxSqF3G2e",
-    "role": "Guest",
+    "role": "Manager",
     "created_at": "2025-08-06T00:33:48.0880878+05:30",
     "available": false
   },

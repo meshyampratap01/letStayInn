@@ -51,7 +51,7 @@ func (h *DashboardHandler) LoadDashboard(ctx context.Context) {
 	case models.RoleCleaningStaff:
 		h.cleaningDashboard(ctx)
 	case models.RoleManager:
-		h.managerDashboard(ctx)
+		h.managerDashboard()
 	default:
 		fmt.Println("Unknown role.")
 	}
@@ -100,18 +100,19 @@ func (h *DashboardHandler) guestDashboard(ctx context.Context) {
 	}
 }
 
-func (h *DashboardHandler) managerDashboard(ctx context.Context) {
+func (h *DashboardHandler) managerDashboard() {
 	for {
 		fmt.Println("\n--- Manager Dashboard ---")
 		fmt.Println("1. View Dashboard Summary")
 		fmt.Println("2. Room Management")
 		fmt.Println("3. View Bookings and Guests")
 		fmt.Println("4. Manage Staff")
-		fmt.Println("5. Assign Cleaning Tasks")
-		fmt.Println("6. Assign Food Requests")
-		fmt.Println("7. View Guest Service Requests")
+		fmt.Println("5. View All Guest Service Requests")
+		fmt.Println("6. View Unassigned Guest Service Requests")
+		fmt.Println("7. Assign Task to Employee")
 		fmt.Println("8. Generate Reports")
 		fmt.Println("9. Logout")
+
 		fmt.Print("Select option: ")
 
 		var choice int
@@ -155,17 +156,17 @@ func (h *DashboardHandler) managerDashboard(ctx context.Context) {
 		case 4:
 		EmpMgmtLoop:
 			for {
-				fmt.Println("\n--- Staff Management ---")
-				fmt.Println("1. List Staff")
-				fmt.Println("2. Update Staff Availability")
-				fmt.Println("3. Delete Staff")
+				fmt.Println("\n--- Employee Management ---")
+				fmt.Println("1. List Employee")
+				fmt.Println("2. Update Employee Availability")
+				fmt.Println("3. Delete employee")
 				fmt.Println("4. Back")
 				fmt.Print("Select option: ")
 				var echoice int
 				fmt.Scanln(&echoice)
 				switch echoice {
 				case 1:
-					h.managerHandler.ListStaff()
+					h.managerHandler.ListEmployee()
 				case 2:
 					h.managerHandler.UpdateEmployeeAvailability()
 				case 3:
@@ -178,17 +179,14 @@ func (h *DashboardHandler) managerDashboard(ctx context.Context) {
 			}
 
 		case 5:
-			h.managerHandler.AssignTaskToEmployee(string(models.ServiceTypeCleaning))
-
+			h.managerHandler.ViewAllServiceRequests()
 		case 6:
-			h.managerHandler.AssignTaskToEmployee(string(models.ServiceTypeFood))
-
+			h.managerHandler.ViewUnassignedServiceRequests()
 		case 7:
-			
-			// ListServiceRequests()
+			h.managerHandler.AssignTasksToEmployees()
 
 		case 8:
-			// GenerateReport()
+			h.managerHandler.GenerateReport()
 
 		case 9:
 			fmt.Println("Logging out...")

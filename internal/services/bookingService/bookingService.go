@@ -20,10 +20,11 @@ type BookingService struct {
 	userRepo	userRepository.UserRepository
 }
 
-func NewBookingService(bookingRepo bookingRepository.BookingRepository, roomRepo roomRepository.IRoomRepository) BookingManager {
+func NewBookingService(bookingRepo bookingRepository.BookingRepository, roomRepo roomRepository.IRoomRepository,userRepo userRepository.UserRepository) BookingManager {
 	return &BookingService{
 		bookingRepo: bookingRepo,
 		roomRepo:    roomRepo,
+		userRepo: 	 userRepo,
 	}
 }
 
@@ -181,4 +182,19 @@ func (s *BookingService) GetAllBookingsWithGuests() ([]models.BookingInfo, error
 	}
 
 	return result, nil
+}
+
+
+func (s *BookingService) GetBookingIDByRoomNumber(roomNumber int) (string, error) {
+	bookings, err := s.bookingRepo.GetAllBookings()
+	if err != nil {
+		return "", err
+	}
+
+	for _, b := range bookings {
+		if b.RoomNum == roomNumber && b.Status == models.BookingStatusBooked {
+			return b.ID, nil
+		}
+	}
+	return "", nil
 }

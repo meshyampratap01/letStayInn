@@ -24,3 +24,15 @@ func (tr *FileTaskRepository) SaveTask(task models.Task) error{
 	return storage.WriteJson(config.TasksFile,tasks)
 }
 
+func (tr *FileTaskRepository) GetAllTask() ([]models.Task,error){
+	var tasks []models.Task
+	err := storage.ReadJson(config.TasksFile,tasks)
+	if err!=nil{
+		return nil,err
+	}
+	return tasks,nil
+}
+
+func (tr *FileTaskRepository) SaveAllTasks(tasks []models.Task) error{
+	return storage.WriteJson(config.TasksFile,tasks)
+}

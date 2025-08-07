@@ -17,7 +17,7 @@ type ServiceRequestService struct {
 	serviceRequestRepo serviceRequestRepository.ServiceRequestRepository
 }
 
-func NewServiceRequestService(bookingRepo bookingRepository.BookingRepository, serviceRequestRepo serviceRequestRepository.ServiceRequestRepository) *ServiceRequestService {
+func NewServiceRequestService(bookingRepo bookingRepository.BookingRepository, serviceRequestRepo serviceRequestRepository.ServiceRequestRepository) IServiceRequestService {
 	return &ServiceRequestService{
 		bookingRepo:        bookingRepo,
 		serviceRequestRepo: serviceRequestRepo,
@@ -84,4 +84,12 @@ func (srs *ServiceRequestService) GetPendingRequestCount() (int, error) {
 		}
 	}
 	return count, nil
+}
+
+func (ms *ServiceRequestService) ViewAllServiceRequests() ([]models.ServiceRequest, error) {
+	return ms.serviceRequestRepo.LoadServiceRequests()
+}
+
+func (s *ServiceRequestService) ViewUnassignedServiceRequest() ([]models.ServiceRequest,error){
+	return s.serviceRequestRepo.GetUnassignedRequests()
 }

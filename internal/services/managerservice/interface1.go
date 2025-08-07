@@ -8,6 +8,6 @@ type IManagerService interface {
 	GetAllEmployees() ([]models.User, error)
 	DeleteEmployeeByEmail(email string) error
 	GetAvailableStaffByTaskType(string) ([]models.User, error)
-	AssignTask(taskType, bookingID, details, staffID string) error
-	ViewUnassignedServiceRequest() ([]models.ServiceRequest,error)
+	AssignTaskFromServiceRequest(requestID, bookingID, details, staffID string) error
+	PrintHotelReport() error
 }

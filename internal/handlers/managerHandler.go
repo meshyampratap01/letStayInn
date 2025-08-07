@@ -4,8 +4,10 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 
+	"github.com/meshyampratap01/letStayInn/internal/models"
 	"github.com/meshyampratap01/letStayInn/internal/services/bookingService"
 	managerservice "github.com/meshyampratap01/letStayInn/internal/services/managerservice"
 	"github.com/meshyampratap01/letStayInn/internal/services/roomService"
@@ -37,7 +39,7 @@ func (mh ManagerHandler) ManagerDashboardSummary() {
 	bookedRooms := totalRooms - availableRooms
 
 	totalGuests, _ := mh.userService.GetTotalGuests()
-	totalStaff, _ := mh.managerService.GetTotalEmployees()
+	totalEmp, _ := mh.managerService.GetTotalEmployees()
 
 	pendingRequests, _ := mh.serviceRequestService.GetPendingRequestCount()
 
@@ -46,7 +48,7 @@ func (mh ManagerHandler) ManagerDashboardSummary() {
 	fmt.Printf("Booked Rooms: %d\n", bookedRooms)
 	fmt.Printf("Available Rooms: %d\n", availableRooms)
 	fmt.Printf("Total Guests: %d\n", totalGuests)
-	fmt.Printf("Total Staff: %d\n", totalStaff)
+	fmt.Printf("Total Employee: %d\n", totalEmp)
 	fmt.Printf("Pending Service Requests: %d\n", pendingRequests)
 }
 
@@ -68,8 +70,8 @@ func (h *ManagerHandler) ListRooms() {
 		if room.IsAvailable {
 			availability = "Yes"
 		}
-		fmt.Printf("ID: %s | Number: %d | Type: %s | Price: %.2f | Available: %s | Description: %s\n",
-			room.ID, room.Number, room.Type, room.Price, availability, room.Description)
+		fmt.Printf("Number: %d | Type: %s | Price: %.2f | Available: %s | Description: %s\n",
+			room.Number, room.Type, room.Price, availability, room.Description)
 	}
 }
 
@@ -159,7 +161,8 @@ func (h *ManagerHandler) UpdateRoom() {
 }
 
 func (h *ManagerHandler) DeleteRoom() {
-	fmt.Print("Enter Room Number to delete: ")
+	h.ListRooms()
+	fmt.Print("\nEnter Room Number to delete: ")
 	var number int
 	fmt.Scanln(&number)
 
@@ -215,8 +218,8 @@ func (mh *ManagerHandler) UpdateEmployeeAvailability() {
 	fmt.Println("Employee availability updated successfully.")
 }
 
-func (mh *ManagerHandler) ListStaff() {
-	fmt.Println("\n--- List of Staff ---")
+func (mh *ManagerHandler) ListEmployee() {
+	fmt.Println("\n--- List of Employees ---")
 
 	employees, err := mh.managerService.GetAllEmployees()
 	if err != nil {
@@ -225,7 +228,7 @@ func (mh *ManagerHandler) ListStaff() {
 	}
 
 	if len(employees) == 0 {
-		fmt.Println("No Staff found.")
+		fmt.Println("No emplyee found.")
 		return
 	}
 
@@ -251,55 +254,97 @@ func (mh *ManagerHandler) DeleteEmployee() {
 	fmt.Println("Employee deleted successfully.")
 }
 
-func (h *ManagerHandler) AssignTaskToEmployee(taskType string) {
+func (h *ManagerHandler) AssignTasksToEmployees() {
 	reader := bufio.NewReader(os.Stdin)
-	fmt.Printf("\n--- Assign %s Task ---\n",taskType)
 
-	fmt.Print("Enter Booking ID: ")
-	bookingID, _ := reader.ReadString('\n')
-	bookingID = strings.TrimSpace(bookingID)
-
-	fmt.Print("Enter Task Details: ")
-	details, _ := reader.ReadString('\n')
-	details = strings.TrimSpace(details)
-
-	staffList, err := h.managerService.GetAvailableStaffByTaskType(taskType)
+	// Step 1: Load unassigned service requests
+	requests, err := h.serviceRequestService.ViewUnassignedServiceRequest()
 	if err != nil {
-		fmt.Println("Error:", err)
-		return
-	}
-	if len(staffList) == 0 {
-		fmt.Println("No available staff to assign this task.")
+		fmt.Println("Error fetching service requests:", err)
 		return
 	}
 
-	fmt.Println("\nAvailable Staff:")
-	for i, staff := range staffList {
-		fmt.Printf("%d. %s (%s)\n", i+1, staff.Name, staff.Email)
-	}
-
-	fmt.Print("Select staff by number: ")
-	var choice int
-	fmt.Scanln(&choice)
-	if choice < 1 || choice > len(staffList) {
-		fmt.Println("Invalid choice.")
-		return
-	}
-	selectedStaff := staffList[choice-1]
-
-	err = h.managerService.AssignTask(taskType, bookingID, details, selectedStaff.ID)
-	if err != nil {
-		fmt.Println("Error assigning task:", err)
+	if len(requests) == 0 {
+		fmt.Println("No unassigned service requests found.")
 		return
 	}
 
-	fmt.Println("Task assigned successfully!")
+	fmt.Println("\n--- Unassigned Service Requests ---")
+	for i, r := range requests {
+		fmt.Printf("%d. Type: %s | Room: %d | Created At: %s\n", i+1, r.Type, r.RoomNum, r.CreatedAt)
+	}
+
+	// Step 2: Select multiple requests
+	fmt.Print("Enter request numbers to assign (comma-separated): ")
+	reqInput, _ := reader.ReadString('\n')
+	reqInput = strings.TrimSpace(reqInput)
+	reqParts := strings.Split(reqInput, ",")
+
+	var selectedRequests []models.ServiceRequest
+	for _, part := range reqParts {
+		index, err := strconv.Atoi(strings.TrimSpace(part))
+		if err != nil || index < 1 || index > len(requests) {
+			fmt.Printf("Skipping invalid selection: %s\n", part)
+			continue
+		}
+		selectedRequests = append(selectedRequests, requests[index-1])
+	}
+
+	if len(selectedRequests) == 0 {
+		fmt.Println("No valid service requests selected.")
+		return
+	}
+
+	// Step 3: Assign each selected request
+	for _, sr := range selectedRequests {
+		fmt.Printf("\n--- Assigning Request: %s (Room %d) ---\n", sr.Type, sr.RoomNum)
+
+		// Find booking for this room
+		bookingID, err := h.bookingService.GetBookingIDByRoomNumber(sr.RoomNum)
+		if err != nil || bookingID == "" {
+			fmt.Printf("No booking found for room %d. Skipping...\n", sr.RoomNum)
+			continue
+		}
+
+		// Get available staff for request type
+		staffList, err := h.managerService.GetAvailableStaffByTaskType(string(sr.Type))
+		if err != nil || len(staffList) == 0 {
+			fmt.Println("No available staff for this task. Skipping...")
+			continue
+		}
+
+		fmt.Println("Available Staff:")
+		for i, s := range staffList {
+			fmt.Printf("%d. %s (%s)\n", i+1, s.Name, s.Email)
+		}
+
+		fmt.Print("Select staff by number: ")
+		var staffChoice int
+		fmt.Scanln(&staffChoice)
+		if staffChoice < 1 || staffChoice > len(staffList) {
+			fmt.Println("Invalid selection. Skipping...")
+			continue
+		}
+		selectedStaff := staffList[staffChoice-1]
+
+		fmt.Print("Enter task details: ")
+		details, _ := reader.ReadString('\n')
+		details = strings.TrimSpace(details)
+
+		// Assign the task
+		err = h.managerService.AssignTaskFromServiceRequest(sr.ID, bookingID, details, selectedStaff.ID)
+		if err != nil {
+			fmt.Println("Failed to assign task:", err)
+		} else {
+			fmt.Println("Task assigned successfully.")
+		}
+	}
 }
 
 func (mh *ManagerHandler) ViewUnassignedServiceRequests() {
 	fmt.Println("\n--- Unassigned Service Requests ---")
 
-	requests, err := mh.managerService.ViewUnassignedServiceRequest()
+	requests, err := mh.serviceRequestService.ViewUnassignedServiceRequest()
 	if err != nil {
 		fmt.Println("Error fetching service requests:", err)
 		return
@@ -317,5 +362,38 @@ func (mh *ManagerHandler) ViewUnassignedServiceRequests() {
 		fmt.Println("Request Type:", req.Type)
 		fmt.Println("Created At:", req.CreatedAt)
 		fmt.Println("-----------------------------------")
+	}
+}
+
+func (mh *ManagerHandler) ViewAllServiceRequests() {
+	fmt.Println("\n--- All Guest Service Requests ---")
+
+	requests, err := mh.serviceRequestService.ViewAllServiceRequests()
+	if err != nil {
+		fmt.Println("Error:", err)
+		return
+	}
+
+	if len(requests) == 0 {
+		fmt.Println("No service requests found.")
+		return
+	}
+
+	for _, req := range requests {
+		fmt.Println("Request ID:", req.ID)
+		fmt.Println("Guest ID:", req.UserID)
+		fmt.Println("Room Number:", req.RoomNum)
+		fmt.Println("Type:", req.Type)
+		fmt.Println("Created At:", req.CreatedAt)
+		fmt.Println("-----------")
+	}
+}
+
+func (h *ManagerHandler) GenerateReport() {
+	fmt.Println("\n--- Generating Hotel Report ---")
+
+	err := h.managerService.PrintHotelReport()
+	if err != nil {
+		fmt.Println("Error generating report:", err)
 	}
 }
