@@ -96,7 +96,7 @@ func (r *RoomService) DeleteRoom(number int) error {
 	for _, room := range rooms {
 		if room.Number == number {
 			found = true
-			continue // skip this room (deleting it)
+			continue 
 		}
 		newRooms = append(newRooms, room)
 	}

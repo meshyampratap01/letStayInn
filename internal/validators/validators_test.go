@@ -61,7 +61,7 @@ func TestValidateDate(t *testing.T) {
 		{today, false},
 		{yesterday, true},
 		{future, false},
-		{"2021-02-30", true}, // invalid date
+		{"2021-02-30", true},
 		{"not-a-date", true},
 	}
 

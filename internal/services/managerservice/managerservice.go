@@ -102,7 +102,7 @@ func (ms *ManagerService) DeleteEmployeeByEmail(email string) error {
 				return errors.New("cannot delete non-employee user")
 			}
 			found = true
-			continue // skipping the employee to delete
+			continue 
 		}
 		updatedUsers = append(updatedUsers, user)
 	}
@@ -143,13 +143,12 @@ func (ms *ManagerService) GetAvailableStaffByTaskType(taskType string) ([]models
 func (s *ManagerService) AssignTaskFromServiceRequest(
 	requestID, bookingID, details, staffID string,
 ) error {
-	// 1. Fetch all service requests
+
 	requests, err := s.serviceRequestRepo.LoadServiceRequests()
 	if err != nil {
 		return fmt.Errorf("failed to load service requests: %w", err)
 	}
 
-	// 2. Find the request by ID
 	var targetRequest *models.ServiceRequest
 	for i := range requests {
 		if requests[i].ID == requestID {
@@ -164,7 +163,6 @@ func (s *ManagerService) AssignTaskFromServiceRequest(
 		return fmt.Errorf("service request already assigned")
 	}
 
-	// 3. Create the new task
 	task := models.Task{
 		ID:         utils.NewUUID(),
 		BookingID:  bookingID,
@@ -175,7 +173,6 @@ func (s *ManagerService) AssignTaskFromServiceRequest(
 		CreatedAt:  time.Now(),
 	}
 
-	// 4. Save the new task
 	tasks, err := s.taskRepo.GetAllTask()
 	if err != nil {
 		return fmt.Errorf("failed to load tasks: %w", err)
@@ -186,7 +183,6 @@ func (s *ManagerService) AssignTaskFromServiceRequest(
 		return fmt.Errorf("failed to save task: %w", err)
 	}
 
-	// 5. Mark the service request as assigned
 	targetRequest.IsAssigned = true
 	if err := s.serviceRequestRepo.SaveServiceRequests(requests); err != nil {
 		return fmt.Errorf("failed to update service requests: %w", err)
@@ -198,7 +194,7 @@ func (s *ManagerService) AssignTaskFromServiceRequest(
 
 
 func (s *ManagerService) PrintHotelReport() error {
-	// Fetch data from repos
+
 	rooms, _ := s.roomRepo.GetAllRooms()
 	availableRooms, _ := s.roomRepo.GetAvailableRooms()
 	guests, _ := s.userRepo.GetAllUsers()
@@ -208,7 +204,6 @@ func (s *ManagerService) PrintHotelReport() error {
 	tasks, _ := s.taskRepo.GetAllTask()
 
 
-	// Count unassigned service requests
 	unassignedRequests := 0
 	for _, req := range serviceRequests {
 		if !req.IsAssigned {
@@ -216,7 +211,7 @@ func (s *ManagerService) PrintHotelReport() error {
 		}
 	}
 
-	// Task Summary
+
 	taskSummary := make(map[models.TaskType]map[models.TaskStatus]int)
 	for _, task := range tasks {
 		if _, exists := taskSummary[task.Type]; !exists {
@@ -225,7 +220,7 @@ func (s *ManagerService) PrintHotelReport() error {
 		taskSummary[task.Type][task.Status]++
 	}
 
-	// Print to CLI
+
 	fmt.Println("\n--- Hotel Report ---")
 	fmt.Printf("Total Rooms: %d\n", len(rooms))
 	fmt.Printf("Available Rooms: %d\n", len(availableRooms))

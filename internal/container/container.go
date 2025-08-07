@@ -16,9 +16,7 @@ import (
 	"github.com/meshyampratap01/letStayInn/internal/services/userService"
 )
 
-// InitHandlers wires all dependencies and returns top-level CLIUserHandler
 func InitHandlers() *handlers.UserHandler {
-	// Repositories
 	userRepo := userRepository.NewFileUserRepository()
 	roomRepo := roomRepository.NewRoomRepository()
 	bookingRepo := bookingRepository.NewFileBookingRepository()
@@ -26,7 +24,6 @@ func InitHandlers() *handlers.UserHandler {
 	serviceReqRepo := serviceRequestRepository.NewFileServiceRequestRepository()
 	taskRepo := taskRepository.NewFileTaskRepository()
 
-	// Services
 	userSvc := userService.NewUserService(userRepo)
 	roomSvc := roomService.NewRoomService(roomRepo)
 	bookingSvc := bookingService.NewBookingService(bookingRepo, roomRepo, userRepo)
@@ -34,7 +31,6 @@ func InitHandlers() *handlers.UserHandler {
 	serviceReqSvc := servicerequest.NewServiceRequestService(bookingRepo, serviceReqRepo)
 	managerSvc := managerservice.NewManagerService(userRepo, taskRepo, serviceReqRepo, roomRepo, bookingRepo)
 
-	// Handlers
 	bookingHandler := handlers.NewBookingHandler(bookingSvc, roomSvc)
 	serviceReqHandler := handlers.NewServiceRequestHandler(serviceReqSvc, bookingRepo)
 	managerHandler := handlers.NewManagerHandler(roomSvc, bookingSvc, userSvc, serviceReqSvc, managerSvc)

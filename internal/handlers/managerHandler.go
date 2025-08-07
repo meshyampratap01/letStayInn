@@ -257,7 +257,6 @@ func (mh *ManagerHandler) DeleteEmployee() {
 func (h *ManagerHandler) AssignTasksToEmployees() {
 	reader := bufio.NewReader(os.Stdin)
 
-	// Step 1: Load unassigned service requests
 	requests, err := h.serviceRequestService.ViewUnassignedServiceRequest()
 	if err != nil {
 		fmt.Println("Error fetching service requests:", err)
@@ -274,7 +273,7 @@ func (h *ManagerHandler) AssignTasksToEmployees() {
 		fmt.Printf("%d. Type: %s | Room: %d | Created At: %s\n", i+1, r.Type, r.RoomNum, r.CreatedAt)
 	}
 
-	// Step 2: Select multiple requests
+	
 	fmt.Print("Enter request numbers to assign (comma-separated): ")
 	reqInput, _ := reader.ReadString('\n')
 	reqInput = strings.TrimSpace(reqInput)
@@ -295,18 +294,18 @@ func (h *ManagerHandler) AssignTasksToEmployees() {
 		return
 	}
 
-	// Step 3: Assign each selected request
+
 	for _, sr := range selectedRequests {
 		fmt.Printf("\n--- Assigning Request: %s (Room %d) ---\n", sr.Type, sr.RoomNum)
 
-		// Find booking for this room
+
 		bookingID, err := h.bookingService.GetBookingIDByRoomNumber(sr.RoomNum)
 		if err != nil || bookingID == "" {
 			fmt.Printf("No booking found for room %d. Skipping...\n", sr.RoomNum)
 			continue
 		}
 
-		// Get available staff for request type
+
 		staffList, err := h.managerService.GetAvailableStaffByTaskType(string(sr.Type))
 		if err != nil || len(staffList) == 0 {
 			fmt.Println("No available staff for this task. Skipping...")
@@ -331,7 +330,7 @@ func (h *ManagerHandler) AssignTasksToEmployees() {
 		details, _ := reader.ReadString('\n')
 		details = strings.TrimSpace(details)
 
-		// Assign the task
+
 		err = h.managerService.AssignTaskFromServiceRequest(sr.ID, bookingID, details, selectedStaff.ID)
 		if err != nil {
 			fmt.Println("Failed to assign task:", err)

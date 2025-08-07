@@ -79,7 +79,7 @@ func (s *BookingService) BookRoom(ctx context.Context, roomNum int, checkInStr, 
 		return err
 	}
 
-	// Update room availability
+
 	for i := range rooms {
 		if rooms[i].ID == selected.ID {
 			rooms[i].IsAvailable = false
