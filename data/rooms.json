@@ -4,7 +4,7 @@
     "number": 101,
     "type": "Single",
     "price": 1000,
-    "is_available": true,
+    "is_available": false,
     "description": "Cozy single room"
   },
   {

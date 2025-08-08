@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/fatih/color"
 	contextkeys "github.com/meshyampratap01/letStayInn/internal/contextKeys"
 	"github.com/meshyampratap01/letStayInn/internal/models"
 	"github.com/meshyampratap01/letStayInn/internal/repository/bookingRepository"
@@ -35,7 +36,7 @@ func (s *ServiceRequestService) ServiceRequest(ctx context.Context, roomNum int,
 	for _, b := range bookings {
 		if b.UserID == ctx.Value(contextkeys.UserIDKey) && b.RoomNum == roomNum &&
 			b.Status != models.BookingStatusCancelled {
-			bid=b.ID
+			bid = b.ID
 			hasValidBooking = true
 			break
 		}
@@ -70,7 +71,7 @@ func (s *ServiceRequestService) ServiceRequest(ctx context.Context, roomNum int,
 		return fmt.Errorf("failed to save request: %w", err)
 	}
 
-	fmt.Printf("%s request submitted for room %d!\n", reqType, roomNum)
+	fmt.Printf(color.GreenString("✅%s request submitted for room %d!\n"), reqType, roomNum)
 	return nil
 }
 

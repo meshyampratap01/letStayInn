@@ -4,19 +4,22 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/fatih/color"
 	"github.com/meshyampratap01/letStayInn/internal/config"
-	"github.com/meshyampratap01/letStayInn/internal/container" 
+	"github.com/meshyampratap01/letStayInn/internal/container"
 )
 
 func main() {
 	CLIUserHandler := container.InitHandlers()
 
 	for {
-		fmt.Println(config.LoginMsg)
-		fmt.Println("1.Signup")
-		fmt.Println("2.Login")
-		fmt.Println("3.Exit")
-		fmt.Print("Select Option: ")
+		color.Cyan(config.WelcomeMsg)
+		color.Cyan(" "+config.AppDescription+" ")
+		color.Yellow("1. Signup")
+		color.Yellow("2. Login")
+		color.Yellow("3. Exit")
+
+		fmt.Print(color.HiWhiteString("Select Option: "))
 		var choice int
 		fmt.Scanln(&choice)
 
@@ -26,10 +29,10 @@ func main() {
 		case 2:
 			CLIUserHandler.LoginHandler()
 		case 3:
-			fmt.Println("Exiting...")
+			color.Green("Exiting...")
 			os.Exit(0)
 		default:
-			fmt.Println(config.InvalidOption)
+			color.Red(config.InvalidOption)
 		}
 	}
 }

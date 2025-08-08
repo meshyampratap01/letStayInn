@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/fatih/color"
+	"github.com/meshyampratap01/letStayInn/internal/config"
 	"github.com/meshyampratap01/letStayInn/internal/services"
 	"github.com/meshyampratap01/letStayInn/internal/services/bookingService"
 	"github.com/meshyampratap01/letStayInn/internal/services/roomService"
@@ -28,50 +30,49 @@ func NewBookingHandler(
 func (h *BookingHandler) ViewRoomsHandler() {
 	rooms, err := h.roomService.GetAvailableRooms()
 	if err != nil {
-		fmt.Printf("Error in finding Rooms: %v\n", err)
+		color.Red(config.MsgErrorFindingRooms, err)
 		services.AddBackButton()
 		return
 	}
-	fmt.Println("\n--- Available Rooms ---")
+
+	color.Cyan(config.TitleAvailableRooms)
 	for _, r := range rooms {
-		fmt.Printf("Room %d (%s): Rs.%.2f - %s\n", r.Number, r.Type, r.Price, r.Description)
+		color.Green("Room %d (%s): Rs.%.2f - %s", r.Number, r.Type, r.Price, r.Description)
 	}
 	services.AddBackButton()
 }
 
 func (h *BookingHandler) BookRoomHandler(ctx context.Context) {
-	fmt.Println("\n---- Book Room ----")
+	color.Cyan(config.TitleBookRoom)
 	rooms, err := h.roomService.GetAvailableRooms()
 	if err != nil {
-		fmt.Printf("Error in finding Rooms: %v\n", err)
+		color.Red(config.MsgErrorFindingRooms, err)
 		services.AddBackButton()
 		return
 	}
 	if len(rooms) == 0 {
-		fmt.Println("No available rooms.")
+		color.Yellow(config.MsgNoAvailableRooms)
 		services.AddBackButton()
 		return
 	}
 
 	for _, r := range rooms {
-		fmt.Printf("Room %d (%s): Rs.%.2f - %s\n", r.Number, r.Type, r.Price, r.Description)
+		color.Green("Room %d (%s): Rs.%.2f - %s", r.Number, r.Type, r.Price, r.Description)
 	}
 
 	var roomNum int
-	fmt.Print("Enter the room number to book: ")
+	fmt.Print(color.HiWhiteString(config.MsgEnterRoomNumber))
 	fmt.Scanln(&roomNum)
 
-	var (
-		checkInDateStr, checkOutDateStr string
-		checkIn, checkOut               string
-	)
+	var checkInDateStr, checkOutDateStr string
+	var checkIn, checkOut string
 
 	for {
-		fmt.Print("Enter check-in date (DD-MM-YYYY): ")
+		fmt.Print(color.HiWhiteString("Enter check-in date (DD-MM-YYYY): "))
 		fmt.Scanln(&checkInDateStr)
 		parsed, err := validators.ValidateDate(checkInDateStr)
 		if err != nil {
-			fmt.Println("Invalid Check-in Date:", err)
+			color.Red(config.MsgInvalidCheckInDate, err)
 			continue
 		}
 		checkIn = parsed
@@ -79,11 +80,11 @@ func (h *BookingHandler) BookRoomHandler(ctx context.Context) {
 	}
 
 	for {
-		fmt.Print("Enter check-out date (DD-MM-YYYY): ")
+		fmt.Print(color.HiWhiteString("Enter check-out date (DD-MM-YYYY): "))
 		fmt.Scanln(&checkOutDateStr)
 		parsed, err := validators.ValidateCheckoutDate(checkIn, checkOutDateStr)
 		if err != nil {
-			fmt.Println("Invalid Check-out Date:", err)
+			color.Red(config.MsgInvalidCheckOutDate, err)
 			continue
 		}
 		checkOut = parsed
@@ -92,74 +93,72 @@ func (h *BookingHandler) BookRoomHandler(ctx context.Context) {
 
 	err = h.bookingService.BookRoom(ctx, roomNum, checkIn, checkOut)
 	if err != nil {
-		fmt.Printf("Booking failed: %v\n", err)
+		color.Red(config.MsgBookingFailed, err)
 	} else {
-		fmt.Println("Room Booked Successfully!!")
+		color.Green(config.MsgBookingSuccess)
 	}
 	services.AddBackButton()
 }
 
-
 func (h *BookingHandler) CancelBookingHandler(ctx context.Context) {
-	fmt.Println("\n---- Cancel Booking ----")
+	color.Cyan(config.TitleCancelBooking)
 
 	bookings, err := h.bookingService.GetUserActiveBookings(ctx)
 	if err != nil {
-		fmt.Printf("Failed to fetch bookings: %v\n", err)
+		color.Red(config.MsgFailedFetchBookings, err)
 		services.AddBackButton()
 		return
 	}
 
 	if len(bookings) == 0 {
-		fmt.Println("No active bookings to cancel.")
+		color.Yellow(config.MsgNoBookingsToCancel)
 		services.AddBackButton()
 		return
 	}
 
-	fmt.Println("Your Active Bookings:")
+	color.Cyan(config.TitleActiveBookings)
 	for i, b := range bookings {
-		fmt.Printf("%d. Room: %d | Check-in: %s | Check-out: %s\n",
+		color.Green("%d. Room: %d | Check-in: %s | Check-out: %s",
 			i+1, b.RoomNum, b.CheckIn.Format("02-01-2006"), b.CheckOut.Format("02-01-2006"))
 	}
 
 	var choice int
-	fmt.Print("Enter the number of the booking to cancel: ")
+	fmt.Print(color.HiWhiteString(config.MsgEnterBookingToCancel))
 	fmt.Scanln(&choice)
 
 	if choice < 1 || choice > len(bookings) {
-		fmt.Println("Invalid choice.")
+		color.Red(config.MsgInvalidChoice)
 		services.AddBackButton()
 		return
 	}
 
 	selectedBooking := bookings[choice-1]
-
 	err = h.bookingService.CancelBooking(ctx, selectedBooking.ID)
 	if err != nil {
-		fmt.Printf("Cancellation failed: %v\n", err)
+		color.Red(config.MsgCancelFailed, err)
 	} else {
-		fmt.Println("Booking cancelled successfully!")
+		color.Green(config.MsgCancelSuccess)
 	}
 	services.AddBackButton()
 }
 
 func (h *BookingHandler) ViewMyBookingsHandler(ctx context.Context) {
-	fmt.Println("\n---- My Bookings ----")
+	color.Cyan(config.TitleMyBookings)
 	bookings, err := h.bookingService.GetUserActiveBookings(ctx)
 	if err != nil {
-		fmt.Printf("Failed to fetch bookings: %v\n", err)
+		color.Red(config.MsgFailedFetchBookings, err)
 		services.AddBackButton()
 		return
 	}
 
 	if len(bookings) == 0 {
-		fmt.Println("You have no bookings.")
+		color.Yellow(config.MsgNoBookings)
 		services.AddBackButton()
 		return
 	}
 
 	for _, b := range bookings {
-		fmt.Printf("Room: %d | Status: %s | Check-in: %s\n",
+		color.Green("Room: %d | Status: %s | Check-in: %s",
 			b.RoomNum, b.Status, b.CheckIn.Format("02-01-2006"))
 	}
 

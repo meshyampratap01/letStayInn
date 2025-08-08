@@ -28,7 +28,7 @@ func (tr *FileTaskRepository) SaveTask(task models.Task) error {
 
 func (tr *FileTaskRepository) GetAllTask() ([]models.Task, error) {
 	var tasks []models.Task
-	err := storage.ReadJson(config.TasksFile, &tasks)
+	err := storage.ReadJson(config.TasksFile, tasks)
 	if err != nil {
 		return nil, err
 	}

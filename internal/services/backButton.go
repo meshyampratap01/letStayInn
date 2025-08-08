@@ -9,7 +9,7 @@ import (
 
 func AddBackButton() {
 	reader := bufio.NewReader(os.Stdin)
-	fmt.Print("\nEnter b to go back: ")
+	fmt.Print("\nEnter 'b' to go back: ")
 	for {
 		input, _ := reader.ReadString('\n')
 		input = strings.TrimSpace(strings.ToLower(input))

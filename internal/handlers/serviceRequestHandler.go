@@ -4,9 +4,10 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/fatih/color"
+	"github.com/meshyampratap01/letStayInn/internal/contextKeys"
 	"github.com/meshyampratap01/letStayInn/internal/models"
 	"github.com/meshyampratap01/letStayInn/internal/repository/bookingRepository"
-	"github.com/meshyampratap01/letStayInn/internal/contextKeys"
 	serviceRequest "github.com/meshyampratap01/letStayInn/internal/services/servicerequest"
 )
 
@@ -25,13 +26,14 @@ func NewServiceRequestHandler(srs serviceRequest.IServiceRequestService, br book
 func (s *ServiceRequestHandler) ServiceRequestHandler(ctx context.Context, reqType models.ServiceType) {
 	roomNum, err := s.SelectUserRoom(ctx)
 	if err != nil {
-		fmt.Println("Error:", err)
+		color.Red("Error: %v", err)
 		return
 	}
 
 	err = s.ServiceRequestService.ServiceRequest(ctx, roomNum, reqType)
 	if err != nil {
-		fmt.Println("Error:", err)
+		color.Red("Error: %v", err)
+		return
 	}
 }
 
@@ -55,13 +57,13 @@ func (s *ServiceRequestHandler) SelectUserRoom(ctx context.Context) (int, error)
 		return -1, fmt.Errorf("you have no active bookings")
 	}
 
-	fmt.Println("\nSelect room for the request:")
+	color.Cyan("\nSelect room for the request:")
 	for i, r := range userRooms {
-		fmt.Printf("%d. Room Num: %d\n", i+1, r)
+		color.Yellow("%d. Room Num: %d", i+1, r)
 	}
 
 	var choice int
-	fmt.Print("Enter choice: ")
+	fmt.Print(color.MagentaString("Enter choice: "))
 	fmt.Scanln(&choice)
 
 	if choice < 1 || choice > len(userRooms) {

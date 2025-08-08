@@ -15,7 +15,7 @@
     "password": "$2a$10$CCkICZ3RZcMp4qR238iE4uod6riKnNAZrhVIG9tPS2hPa1BAoGXO2",
     "role": "CleaningStaff",
     "created_at": "2025-08-08T03:58:16.2444952+05:30",
-    "available": true
+    "available": false
   },
   {
     "id": "04d9e8d6-4807-47e9-baa0-3ea337609a32",
@@ -33,6 +33,42 @@
     "password": "$2a$10$nriFm0Ol3toBYOXpSFt/P.Wpfl5KO626cZKjVHM.qm3Z0BcKruBxm",
     "role": "Guest",
     "created_at": "2025-08-08T03:17:34.0262727+05:30",
+    "available": false
+  },
+  {
+    "id": "ad47bbf7-fc13-4a60-958a-fb90984b540d",
+    "name": "Shubham Pratap",
+    "email": "shubham@gmail.com",
+    "password": "$2a$10$8xRR4CpAtK2.xfx2HHWjHuYSuu8GxwDO9xUq03sPfXqft.YmHbC8.",
+    "role": "Guest",
+    "created_at": "2025-08-08T08:14:56.0743942+05:30",
+    "available": false
+  },
+  {
+    "id": "c69fc219-7f3d-43d5-9777-08712bd9f1c7",
+    "name": "Jashan",
+    "email": "kuch@example.com",
+    "password": "$2a$10$MOAqHJiVQ6Tu5/TQ0fjmvOTgIX85MJZq6ykQ.ZmvMEUIK9Zi.T3E6",
+    "role": "Guest",
+    "created_at": "2025-08-08T09:11:53.7767002+05:30",
+    "available": false
+  },
+  {
+    "id": "1759246c-f184-404f-9aef-eec13535273c",
+    "name": "asit",
+    "email": "asit1@gmai.com",
+    "password": "$2a$10$DM/SFp.JfhT52/LFGAJxE.4N4xsA/uSDKdkpyCLRyfzU.jP50I1tS",
+    "role": "Guest",
+    "created_at": "2025-08-08T09:45:29.4290107+05:30",
+    "available": false
+  },
+  {
+    "id": "f31ae1d2-15a6-418a-a30b-85c705b42300",
+    "name": "Shyam",
+    "email": "shyam1@gmail.com",
+    "password": "$2a$10$re6mKKdJV1iFfastEAWYLu.gJHrncTQMUOnT.On2eK9NsQzAhRkiW",
+    "role": "Guest",
+    "created_at": "2025-08-08T11:15:03.8266292+05:30",
     "available": false
   }
 ]

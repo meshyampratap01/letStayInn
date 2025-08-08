@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/eiannone/keyboard"
 	"github.com/meshyampratap01/letStayInn/internal/auth"
 	"github.com/meshyampratap01/letStayInn/internal/config"
 	"github.com/meshyampratap01/letStayInn/internal/models"
@@ -13,11 +14,11 @@ import (
 	"github.com/meshyampratap01/letStayInn/internal/utils"
 )
 
-type UserService struct{
-	userRepo 	userRepository.UserRepository
+type UserService struct {
+	userRepo userRepository.UserRepository
 }
 
-func NewUserService(userRepo userRepository.UserRepository) UserManager{
+func NewUserService(userRepo userRepository.UserRepository) UserManager {
 	return &UserService{
 		userRepo: userRepo,
 	}
@@ -29,16 +30,14 @@ func (s *UserService) Signup(name, email, password string, roleint int) (string,
 		return "", fmt.Errorf("invalid role")
 	}
 
-	newUser := CreateUser(name, email, password, role)
+	newUser := s.CreateUser(name, email, password, role)
 
 	if err := s.userRepo.SaveUser(newUser); err != nil {
-		return "", err 
+		return "", err
 	}
 
 	return "Signup successful as Guest!! Please login.", nil
 }
-
-
 
 func (s *UserService) Login(email, password string) (*models.User, error) {
 	var users []models.User
@@ -67,7 +66,7 @@ func (us *UserService) GetTotalGuests() (int, error) {
 	return count, nil
 }
 
-func CreateUser(name, email, password string, role models.Role) models.User {
+func (us *UserService) CreateUser(name, email, password string, role models.Role) models.User {
 	return models.User{
 		ID:        utils.NewUUID(),
 		Name:      strings.TrimSpace(name),
@@ -77,4 +76,31 @@ func CreateUser(name, email, password string, role models.Role) models.User {
 		CreatedAt: time.Now(),
 		Available: role != models.RoleGuest,
 	}
+}
+
+func (us *UserService) ReadPasswordMasked() (string, error) {
+	if err := keyboard.Open(); err != nil {
+		return "", err
+	}
+	defer keyboard.Close()
+	password := ""
+	for {
+		char, key, err := keyboard.GetKey()
+		if err!=nil{
+			return "",err
+		}
+		if key == keyboard.KeyEnter{
+			break
+		} else if key == keyboard.KeyBackspace || key == keyboard.KeyBackspace2{
+			if len(password)>0{
+				password = password[:len(password)-1]
+				fmt.Print("\b \b")
+			}
+		} else{
+			password +=string(char)
+			fmt.Print("*")
+		}
+	}
+	fmt.Println()
+	return password,nil
 }
