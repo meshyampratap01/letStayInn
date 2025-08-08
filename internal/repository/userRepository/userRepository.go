@@ -63,3 +63,38 @@ func (db *FileUserRepository) SaveAllUsers(users []models.User)error{
 	}
 	return nil
 }
+
+func (repo *FileUserRepository) ToggleStaffAvailability(userID string) error {
+	var users []models.User
+	err := storage.ReadJson(config.UsersFile, &users)
+	if err != nil {
+		return err
+	}
+
+	for i := range users {
+		if users[i].ID == userID {
+			users[i].Available = !users[i].Available
+			return storage.WriteJson(config.UsersFile, users)
+		}
+	}
+	return fmt.Errorf("user not found")
+}
+
+func (repo *FileUserRepository) GetStaffAvailability(userID string) (bool, error) {
+	var users []models.User
+	err := storage.ReadJson(config.UsersFile, &users)
+	if err != nil {
+		return false, err
+	}
+
+	for _, u := range users {
+		if u.ID == userID {
+			return u.Available, nil
+		}
+	}
+	return false, fmt.Errorf("user not found")
+}
+
+
+
+

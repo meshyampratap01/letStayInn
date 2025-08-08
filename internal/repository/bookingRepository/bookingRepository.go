@@ -1,6 +1,7 @@
 package bookingRepository
 
 import (
+	"fmt"
 
 	"github.com/meshyampratap01/letStayInn/internal/config"
 	"github.com/meshyampratap01/letStayInn/internal/models"
@@ -9,7 +10,7 @@ import (
 
 type FileBookingRepository struct{}
 
-func NewFileBookingRepository() BookingRepository{
+func NewFileBookingRepository() BookingRepository {
 	return &FileBookingRepository{}
 }
 
@@ -52,4 +53,17 @@ func (db *FileBookingRepository) UpdateBooking(updated models.Booking) error {
 	return db.SaveBookings(bookings)
 }
 
+func (br *FileBookingRepository) GetBookingByID(bookingID string) (*models.Booking, error) {
+	bookings, err := br.GetAllBookings()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load bookings: %w", err)
+	}
 
+	for _, booking := range bookings {
+		if booking.ID == bookingID {
+			return &booking, nil
+		}
+	}
+
+	return nil, fmt.Errorf("booking with ID %s not found", bookingID)
+}

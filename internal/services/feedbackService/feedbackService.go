@@ -69,7 +69,6 @@ func (s *FeedbackService) SubmitFeedback(ctx context.Context) error {
 		CreatedAt: time.Now().Format(time.RFC3339),
 	}
 
-
 	if err := s.feedbackRepo.SaveFeedback(feedback); err != nil {
 		return fmt.Errorf("failed to save feedback: %w", err)
 	}

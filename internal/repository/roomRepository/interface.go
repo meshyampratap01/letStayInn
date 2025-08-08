@@ -7,4 +7,5 @@ type IRoomRepository interface {
 	SaveRooms(rooms []models.Room) error
 	GetAvailableRooms() ([]models.Room, error)
 	AddRoom(room models.Room) error
+	GetRoomNumberByBookingID(string) (string, error)
 }

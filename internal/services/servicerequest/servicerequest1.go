@@ -31,9 +31,11 @@ func (s *ServiceRequestService) ServiceRequest(ctx context.Context, roomNum int,
 	}
 
 	hasValidBooking := false
+	var bid string
 	for _, b := range bookings {
 		if b.UserID == ctx.Value(contextkeys.UserIDKey) && b.RoomNum == roomNum &&
 			b.Status != models.BookingStatusCancelled {
+			bid=b.ID
 			hasValidBooking = true
 			break
 		}
@@ -55,7 +57,8 @@ func (s *ServiceRequestService) ServiceRequest(ctx context.Context, roomNum int,
 	newRequest := models.ServiceRequest{
 		ID:        utils.NewUUID(),
 		UserID:    ctx.Value(contextkeys.UserIDKey).(string),
-		RoomNum:    roomNum,
+		RoomNum:   roomNum,
+		BookingID: bid,
 		Type:      reqType,
 		Status:    models.ServiceStatusPending,
 		CreatedAt: time.Now().Format(time.RFC3339),
@@ -79,7 +82,7 @@ func (srs *ServiceRequestService) GetPendingRequestCount() (int, error) {
 
 	count := 0
 	for _, r := range requests {
-		if r.Status == "pending" {
+		if r.Status == models.ServiceStatusPending {
 			count++
 		}
 	}
@@ -90,6 +93,6 @@ func (ms *ServiceRequestService) ViewAllServiceRequests() ([]models.ServiceReque
 	return ms.serviceRequestRepo.LoadServiceRequests()
 }
 
-func (s *ServiceRequestService) ViewUnassignedServiceRequest() ([]models.ServiceRequest,error){
+func (s *ServiceRequestService) ViewUnassignedServiceRequest() ([]models.ServiceRequest, error) {
 	return s.serviceRequestRepo.GetUnassignedRequests()
 }

@@ -20,3 +20,13 @@ func (db *FileFeedbackRepository)SaveFeedback(f models.Feedback) error {
 	feedbacks = append(feedbacks, f)
 	return storage.WriteJson(config.FeedbackFile, feedbacks)
 }
+
+
+func (repo *FileFeedbackRepository) GetAllFeedback() ([]models.Feedback, error) {
+	var feedbacks []models.Feedback
+	err := storage.ReadJson(config.FeedbackFile, &feedbacks)
+	if err != nil {
+		return nil, err
+	}
+	return feedbacks, nil
+}

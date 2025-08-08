@@ -7,6 +7,7 @@ import (
 	contextkeys "github.com/meshyampratap01/letStayInn/internal/contextKeys"
 	"github.com/meshyampratap01/letStayInn/internal/models"
 	"github.com/meshyampratap01/letStayInn/internal/services/bookingService"
+	"github.com/meshyampratap01/letStayInn/internal/services/employeeService"
 	"github.com/meshyampratap01/letStayInn/internal/services/feedbackService"
 	"github.com/meshyampratap01/letStayInn/internal/services/roomService"
 	"github.com/meshyampratap01/letStayInn/internal/services/servicerequest"
@@ -19,7 +20,9 @@ type DashboardHandler struct {
 	ServiceRequestService servicerequest.IServiceRequestService
 	BookingHandler        *BookingHandler
 	ServiceRequestHandler *ServiceRequestHandler
-	managerHandler			*ManagerHandler
+	managerHandler        *ManagerHandler
+	employeeService       employeeService.IEmployeeService
+	employeeHandler       *EmployeeHandler
 }
 
 func NewDashboardHandler(
@@ -29,7 +32,9 @@ func NewDashboardHandler(
 	serviceReqSvc servicerequest.IServiceRequestService,
 	bh *BookingHandler,
 	ServiceRequestHandler *ServiceRequestHandler,
-	managerHandler			*ManagerHandler,
+	managerHandler *ManagerHandler,
+	employeeService employeeService.IEmployeeService,
+	employeeHandler *EmployeeHandler,
 ) *DashboardHandler {
 	return &DashboardHandler{
 		RoomService:           roomSvc,
@@ -38,7 +43,9 @@ func NewDashboardHandler(
 		ServiceRequestService: serviceReqSvc,
 		BookingHandler:        bh,
 		ServiceRequestHandler: ServiceRequestHandler,
-		managerHandler:			managerHandler,
+		managerHandler:        managerHandler,
+		employeeService:       employeeService,
+		employeeHandler:	   employeeHandler,
 	}
 }
 
@@ -47,11 +54,11 @@ func (h *DashboardHandler) LoadDashboard(ctx context.Context) {
 	case models.RoleGuest:
 		h.guestDashboard(ctx)
 	case models.RoleKitchenStaff:
-		h.kitchenDashboard(ctx)
+		h.EmployeeDashboard(ctx)
 	case models.RoleCleaningStaff:
-		h.cleaningDashboard(ctx)
+		h.EmployeeDashboard(ctx)
 	case models.RoleManager:
-		h.managerDashboard()
+		h.managerDashboard(ctx)
 	default:
 		fmt.Println("Unknown role.")
 	}
@@ -100,7 +107,7 @@ func (h *DashboardHandler) guestDashboard(ctx context.Context) {
 	}
 }
 
-func (h *DashboardHandler) managerDashboard() {
+func (h *DashboardHandler) managerDashboard(ctx context.Context) {
 	for {
 		fmt.Println("\n--- Manager Dashboard ---")
 		fmt.Println("1. View Dashboard Summary")
@@ -111,7 +118,8 @@ func (h *DashboardHandler) managerDashboard() {
 		fmt.Println("6. View Unassigned Guest Service Requests")
 		fmt.Println("7. Assign Task to Employee")
 		fmt.Println("8. Generate Reports")
-		fmt.Println("9. Logout")
+		fmt.Println("9. View Guest Feedback")
+		fmt.Println("10. Logout")
 
 		fmt.Print("Select option: ")
 
@@ -184,24 +192,51 @@ func (h *DashboardHandler) managerDashboard() {
 			h.managerHandler.ViewUnassignedServiceRequests()
 		case 7:
 			h.managerHandler.AssignTasksToEmployees()
-
 		case 8:
 			h.managerHandler.GenerateReport()
-
 		case 9:
+			h.managerHandler.ViewFeedback(ctx) 
+		case 10:
 			fmt.Println("Logging out...")
 			return
-
 		default:
 			fmt.Println("Invalid option.")
 		}
 	}
 }
 
-func (h *DashboardHandler) kitchenDashboard(context.Context) {
-	fmt.Println("Kitchen dashboard features coming soon.")
+
+func (h *DashboardHandler) EmployeeDashboard(ctx context.Context) {
+
+	userID, ok := ctx.Value(contextkeys.UserIDKey).(string)
+	if !ok {
+		fmt.Println("invalid or missing user ID in context")
+		return
+	}
+	for {
+		fmt.Println("\n--- Employee Dashboard ---")
+		fmt.Println("1. View Assigned Tasks")
+		fmt.Println("2. Update Task Status")
+		fmt.Println("3. Toggle Availability")
+		fmt.Println("4. Exit Dashboard")
+		fmt.Print("Select an option: ")
+
+		var choice int
+		fmt.Scanln(&choice)
+
+		switch choice {
+		case 1:
+			h.employeeHandler.ViewAssignedTasks(userID)
+		case 2:
+			h.employeeHandler.UpdateTaskStatus(userID)
+		case 3:
+			h.employeeHandler.ToggleAvailability(userID)
+		case 4:
+			fmt.Println("Exiting Employee Dashboard...")
+			return
+		default:
+			fmt.Println("Invalid option. Please try again.")
+		}
+	}
 }
 
-func (h *DashboardHandler) cleaningDashboard(context.Context) {
-	fmt.Println("Cleaning dashboard features coming soon.")
-}

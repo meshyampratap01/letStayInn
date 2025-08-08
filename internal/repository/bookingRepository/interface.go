@@ -8,4 +8,5 @@ type BookingRepository interface {
 	SaveBookings(bookings []models.Booking) error
 	GetBookingsByUserID(userID string) ([]models.Booking, error)
 	UpdateBooking(updated models.Booking) error
+	GetBookingByID(string) (*models.Booking, error)
 }

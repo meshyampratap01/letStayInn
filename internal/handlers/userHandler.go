@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"os"
 	"strings"
+
 	"github.com/meshyampratap01/letStayInn/internal/contextKeys"
+	"github.com/meshyampratap01/letStayInn/internal/services/feedbackService"
 	"github.com/meshyampratap01/letStayInn/internal/services/userService"
 	"github.com/meshyampratap01/letStayInn/internal/validators"
 )
@@ -14,12 +16,14 @@ import (
 type UserHandler struct {
 	userService      userService.UserManager
 	DashboardHandler *DashboardHandler
+	feedbackService  feedbackService.FeedbackServiceManager
 }
 
-func NewUserHandler(us userService.UserManager, DashboardHandler *DashboardHandler) *UserHandler {
+func NewUserHandler(us userService.UserManager, DashboardHandler *DashboardHandler,fs feedbackService.FeedbackServiceManager) *UserHandler {
 	return &UserHandler{
 		userService:      us,
 		DashboardHandler: DashboardHandler,
+		feedbackService: fs,
 	}
 }
 
@@ -86,7 +90,19 @@ func (u *UserHandler) LoginHandler() {
 
 	ctx := context.WithValue(context.Background(), contextkeys.UserIDKey, user.ID)
 	ctx = context.WithValue(ctx, contextkeys.UserRoleKey, user.Role)
+	ctx = context.WithValue(ctx, contextkeys.UserNameKey, user.Name)
 
 	fmt.Printf("Welcome, %s!\n", user.Name)
 	u.DashboardHandler.LoadDashboard(ctx)
+}
+
+func (h *UserHandler) SubmitFeedback(ctx context.Context) {
+	if name, ok := ctx.Value(contextkeys.UserNameKey).(string); ok {
+		fmt.Printf("Hello %s! We'd love to hear your thoughts.\n", name)
+	}
+
+	err := h.feedbackService.SubmitFeedback(ctx)
+	if err != nil {
+		fmt.Println("Error submitting feedback:", err)
+	}
 }

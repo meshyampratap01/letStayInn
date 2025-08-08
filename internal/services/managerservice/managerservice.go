@@ -7,6 +7,7 @@ import (
 
 	"github.com/meshyampratap01/letStayInn/internal/models"
 	"github.com/meshyampratap01/letStayInn/internal/repository/bookingRepository"
+	"github.com/meshyampratap01/letStayInn/internal/repository/feedbackRepository"
 	"github.com/meshyampratap01/letStayInn/internal/repository/roomRepository"
 	"github.com/meshyampratap01/letStayInn/internal/repository/serviceRequestRepository"
 	"github.com/meshyampratap01/letStayInn/internal/repository/taskRepository"
@@ -20,15 +21,17 @@ type ManagerService struct {
 	serviceRequestRepo 	serviceRequestRepository.ServiceRequestRepository
 	roomRepo		roomRepository.IRoomRepository
 	bookingRepo		bookingRepository.BookingRepository
+	feedbackRepo	feedbackRepository.FeedbackRepository
 }
 
-func NewManagerService(userRepo userRepository.UserRepository,taskRepo taskRepository.TaskRepository,serviceRequestRepo serviceRequestRepository.ServiceRequestRepository,roomRepo roomRepository.IRoomRepository,bookingRepo bookingRepository.BookingRepository) IManagerService {
+func NewManagerService(userRepo userRepository.UserRepository,taskRepo taskRepository.TaskRepository,serviceRequestRepo serviceRequestRepository.ServiceRequestRepository,roomRepo roomRepository.IRoomRepository,bookingRepo bookingRepository.BookingRepository,feedbackRepo feedbackRepository.FeedbackRepository) IManagerService {
 	return &ManagerService{
 		userRepo: userRepo,
 		taskRepo: taskRepo,
 		serviceRequestRepo: serviceRequestRepo,
 		roomRepo: roomRepo,
 		bookingRepo: bookingRepo,
+		feedbackRepo: feedbackRepo,
 	}
 }
 
@@ -165,6 +168,7 @@ func (s *ManagerService) AssignTaskFromServiceRequest(
 
 	task := models.Task{
 		ID:         utils.NewUUID(),
+		RequestID:	requestID,
 		BookingID:  bookingID,
 		AssignedTo: staffID,
 		Type:       models.TaskType(targetRequest.Type),
@@ -230,12 +234,23 @@ func (s *ManagerService) PrintHotelReport() error {
 	fmt.Printf("Unassigned Service Requests: %d\n", unassignedRequests)
 
 	fmt.Println("\n--- Task Summary ---")
+	var hasTaskType bool
 	for taskType, statuses := range taskSummary {
+		hasTaskType=true
 		fmt.Printf("%s:\n", taskType)
 		for status, count := range statuses {
 			fmt.Printf("  %s: %d\n", status, count)
 		}
 	}
 
+	if !hasTaskType{
+		fmt.Println("\nNo Tasks to show.")
+	}
 	return nil
 }
+
+func (ms *ManagerService) ViewAllFeedback() ([]models.Feedback, error) {
+	return ms.feedbackRepo.GetAllFeedback()
+}
+
+

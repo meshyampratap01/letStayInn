@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"os"
 	"strconv"
@@ -273,7 +274,6 @@ func (h *ManagerHandler) AssignTasksToEmployees() {
 		fmt.Printf("%d. Type: %s | Room: %d | Created At: %s\n", i+1, r.Type, r.RoomNum, r.CreatedAt)
 	}
 
-	
 	fmt.Print("Enter request numbers to assign (comma-separated): ")
 	reqInput, _ := reader.ReadString('\n')
 	reqInput = strings.TrimSpace(reqInput)
@@ -294,17 +294,14 @@ func (h *ManagerHandler) AssignTasksToEmployees() {
 		return
 	}
 
-
 	for _, sr := range selectedRequests {
 		fmt.Printf("\n--- Assigning Request: %s (Room %d) ---\n", sr.Type, sr.RoomNum)
-
 
 		bookingID, err := h.bookingService.GetBookingIDByRoomNumber(sr.RoomNum)
 		if err != nil || bookingID == "" {
 			fmt.Printf("No booking found for room %d. Skipping...\n", sr.RoomNum)
 			continue
 		}
-
 
 		staffList, err := h.managerService.GetAvailableStaffByTaskType(string(sr.Type))
 		if err != nil || len(staffList) == 0 {
@@ -329,7 +326,6 @@ func (h *ManagerHandler) AssignTasksToEmployees() {
 		fmt.Print("Enter task details: ")
 		details, _ := reader.ReadString('\n')
 		details = strings.TrimSpace(details)
-
 
 		err = h.managerService.AssignTaskFromServiceRequest(sr.ID, bookingID, details, selectedStaff.ID)
 		if err != nil {
@@ -394,5 +390,24 @@ func (h *ManagerHandler) GenerateReport() {
 	err := h.managerService.PrintHotelReport()
 	if err != nil {
 		fmt.Println("Error generating report:", err)
+	}
+}
+
+func (mh *ManagerHandler) ViewFeedback(ctx context.Context) {
+	feedbacks, err := mh.managerService.ViewAllFeedback()
+	if err != nil {
+		fmt.Println("Error fetching feedback:", err)
+		return
+	}
+
+	if len(feedbacks) == 0 {
+		fmt.Println("No feedback available.")
+		return
+	}
+
+	fmt.Println("\n--- All Feedback ---")
+	for _, fb := range feedbacks {
+		fmt.Printf("Feedback ID: %s\nUser ID: %s\nMessage: %s\nDate: %s\n\n",
+			fb.ID, fb.UserID, fb.Message, fb.CreatedAt)
 	}
 }

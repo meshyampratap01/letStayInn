@@ -7,4 +7,6 @@ type UserRepository interface {
 	SaveUser(newUser models.User) error
 	GetAllUsers() ([]models.User, error)
 	SaveAllUsers([]models.User)error
+	ToggleStaffAvailability(string) error
+	GetStaffAvailability(string) (bool,error)
 }

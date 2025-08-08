@@ -3,9 +3,11 @@ package handlers
 import (
 	"context"
 	"fmt"
+
 	"github.com/meshyampratap01/letStayInn/internal/services"
 	"github.com/meshyampratap01/letStayInn/internal/services/bookingService"
 	"github.com/meshyampratap01/letStayInn/internal/services/roomService"
+	"github.com/meshyampratap01/letStayInn/internal/validators"
 )
 
 type BookingHandler struct {
@@ -59,11 +61,34 @@ func (h *BookingHandler) BookRoomHandler(ctx context.Context) {
 	fmt.Print("Enter the room number to book: ")
 	fmt.Scanln(&roomNum)
 
-	var checkIn, checkOut string
-	fmt.Print("Enter check-in date (DD-MM-YYYY): ")
-	fmt.Scanln(&checkIn)
-	fmt.Print("Enter check-out date (DD-MM-YYYY): ")
-	fmt.Scanln(&checkOut)
+	var (
+		checkInDateStr, checkOutDateStr string
+		checkIn, checkOut               string
+	)
+
+	for {
+		fmt.Print("Enter check-in date (DD-MM-YYYY): ")
+		fmt.Scanln(&checkInDateStr)
+		parsed, err := validators.ValidateDate(checkInDateStr)
+		if err != nil {
+			fmt.Println("Invalid Check-in Date:", err)
+			continue
+		}
+		checkIn = parsed
+		break
+	}
+
+	for {
+		fmt.Print("Enter check-out date (DD-MM-YYYY): ")
+		fmt.Scanln(&checkOutDateStr)
+		parsed, err := validators.ValidateCheckoutDate(checkIn, checkOutDateStr)
+		if err != nil {
+			fmt.Println("Invalid Check-out Date:", err)
+			continue
+		}
+		checkOut = parsed
+		break
+	}
 
 	err = h.bookingService.BookRoom(ctx, roomNum, checkIn, checkOut)
 	if err != nil {
@@ -73,6 +98,7 @@ func (h *BookingHandler) BookRoomHandler(ctx context.Context) {
 	}
 	services.AddBackButton()
 }
+
 
 func (h *BookingHandler) CancelBookingHandler(ctx context.Context) {
 	fmt.Println("\n---- Cancel Booking ----")

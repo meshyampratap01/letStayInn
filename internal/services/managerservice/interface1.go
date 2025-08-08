@@ -10,4 +10,5 @@ type IManagerService interface {
 	GetAvailableStaffByTaskType(string) ([]models.User, error)
 	AssignTaskFromServiceRequest(requestID, bookingID, details, staffID string) error
 	PrintHotelReport() error
+	ViewAllFeedback() ([]models.Feedback, error)
 }

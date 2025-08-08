@@ -37,17 +37,39 @@ func ValidatePassword(password string) error {
 }
 
 
-func ValidateDate(dateStr string) (time.Time, error) {
-	layout := "2006-01-02"
+func ValidateDate(dateStr string) (string, error) {
+	layout := "02-01-2006"
 	parsedDate, err := time.Parse(layout, dateStr)
 	if err != nil {
-		return time.Time{}, errors.New("invalid date format (expected YYYY-MM-DD)")
+		return "", errors.New("invalid date format (expected DD-MM-YYYY)")
 	}
 
 	today := time.Now().Truncate(24 * time.Hour)
 	if parsedDate.Before(today) {
-		return time.Time{}, errors.New("date must be today or in the future")
+		return "", errors.New("date must be today or in the future")
 	}
 
-	return parsedDate, nil
+	return parsedDate.Format(layout), nil
 }
+
+
+func ValidateCheckoutDate(checkinStr, checkoutStr string) (string, error) {
+	layout := "02-01-2006"
+
+	checkinDate, err := time.Parse(layout, checkinStr)
+	if err != nil {
+		return "", errors.New("invalid check-in date format (expected DD-MM-YYYY)")
+	}
+
+	checkoutDate, err := time.Parse(layout, checkoutStr)
+	if err != nil {
+		return "", errors.New("invalid check-out date format (expected DD-MM-YYYY)")
+	}
+
+	if checkoutDate.Before(checkinDate) {
+		return "", errors.New("checkout date must be the same or after the check-in date")
+	}
+
+	return checkoutDate.Format(layout), nil
+}
+
