@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/fatih/color"
 	"github.com/meshyampratap01/letStayInn/internal/config"
@@ -10,6 +11,7 @@ import (
 	"github.com/meshyampratap01/letStayInn/internal/services/bookingService"
 	"github.com/meshyampratap01/letStayInn/internal/services/roomService"
 	"github.com/meshyampratap01/letStayInn/internal/validators"
+	"github.com/meshyampratap01/letStayInn/internal/utils"
 )
 
 type BookingHandler struct {
@@ -35,10 +37,33 @@ func (h *BookingHandler) ViewRoomsHandler() {
 		return
 	}
 
-	color.Cyan(config.TitleAvailableRooms)
-	for _, r := range rooms {
-		color.Green("Room %d (%s): Rs.%.2f - %s", r.Number, r.Type, r.Price, r.Description)
+	if len(rooms) == 0 {
+		color.Yellow("No available rooms found.")
+		services.AddBackButton()
+		return
 	}
+
+	color.Cyan(config.TitleAvailableRooms)
+
+	fmt.Printf("%-10s %-12s %-10s %-15s %s\n",
+		"Room No", "Type", "Price(Rs)", "Availability", "Description")
+	fmt.Println(strings.Repeat("-", 70))
+
+	for _, r := range rooms {
+		availability := "Available"
+		if !r.IsAvailable {
+			availability = "Occupied"
+		}
+
+		fmt.Printf("%-10d %-12s %-10.2f %-15s %s\n",
+			r.Number,
+			r.Type,
+			r.Price,
+			availability,
+			utils.TruncateString(r.Description, 30))
+	}
+
+	fmt.Println(strings.Repeat("-", 70))
 	services.AddBackButton()
 }
 
@@ -56,9 +81,27 @@ func (h *BookingHandler) BookRoomHandler(ctx context.Context) {
 		return
 	}
 
+	fmt.Println(strings.Repeat("=", 80))
+	fmt.Printf("%-10s %-15s %-12s %-20s %-30s\n",
+		"Room No", "Type", "Price (Rs)", "Availability", "Description")
+	fmt.Println(strings.Repeat("-", 80))
+
 	for _, r := range rooms {
-		color.Green("Room %d (%s): Rs.%.2f - %s", r.Number, r.Type, r.Price, r.Description)
+		availability := color.GreenString("Available")
+		if !r.IsAvailable {
+			availability = color.RedString("Occupied")
+		}
+
+		fmt.Printf("%-10d %-15s %-12.2f %-15s %-30s\n",
+			r.Number,
+			r.Type,
+			r.Price,
+			availability,
+			utils.TruncateString(r.Description, 30),
+		)
 	}
+
+	fmt.Println(strings.Repeat("=", 80))
 
 	var roomNum int
 	fmt.Print(color.HiWhiteString(config.MsgEnterRoomNumber))

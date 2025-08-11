@@ -1,11 +1,14 @@
 package handlers
 
 import (
+	"bufio"
 	"context"
 	"fmt"
+	"os"
+	"strings"
 
 	"github.com/fatih/color"
-	"github.com/meshyampratap01/letStayInn/internal/contextKeys"
+	contextkeys "github.com/meshyampratap01/letStayInn/internal/contextKeys"
 	"github.com/meshyampratap01/letStayInn/internal/models"
 	"github.com/meshyampratap01/letStayInn/internal/repository/bookingRepository"
 	serviceRequest "github.com/meshyampratap01/letStayInn/internal/services/servicerequest"
@@ -30,11 +33,19 @@ func (s *ServiceRequestHandler) ServiceRequestHandler(ctx context.Context, reqTy
 		return
 	}
 
-	err = s.ServiceRequestService.ServiceRequest(ctx, roomNum, reqType)
+	var details string
+	reader := bufio.NewReader(os.Stdin)
+	fmt.Print("Please describe your service request in detail: ")
+	details, _ = reader.ReadString('\n')
+	details = strings.TrimSpace(details)
+
+	err = s.ServiceRequestService.ServiceRequestGetter(ctx, roomNum, reqType, details)
 	if err != nil {
 		color.Red("Error: %v", err)
 		return
 	}
+
+	color.Green("Your service request has been placed successfully.")
 }
 
 func (s *ServiceRequestHandler) SelectUserRoom(ctx context.Context) (int, error) {

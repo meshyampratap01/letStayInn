@@ -25,7 +25,7 @@ func NewServiceRequestService(bookingRepo bookingRepository.BookingRepository, s
 	}
 }
 
-func (s *ServiceRequestService) ServiceRequest(ctx context.Context, roomNum int, reqType models.ServiceType) error {
+func (s *ServiceRequestService) ServiceRequestGetter(ctx context.Context, roomNum int, reqType models.ServiceType, details string) error {
 	bookings, err := s.bookingRepo.GetAllBookings()
 	if err != nil {
 		return fmt.Errorf("failed to load bookings: %w", err)
@@ -63,6 +63,7 @@ func (s *ServiceRequestService) ServiceRequest(ctx context.Context, roomNum int,
 		Type:      reqType,
 		Status:    models.ServiceStatusPending,
 		CreatedAt: time.Now().Format(time.RFC3339),
+		Details:   details,
 	}
 
 	requests = append(requests, newRequest)
@@ -96,4 +97,20 @@ func (ms *ServiceRequestService) ViewAllServiceRequests() ([]models.ServiceReque
 
 func (s *ServiceRequestService) ViewUnassignedServiceRequest() ([]models.ServiceRequest, error) {
 	return s.serviceRequestRepo.GetUnassignedRequests()
+}
+
+func (s *ServiceRequestService) CancelServiceRequestByRoomNum(roomNum int) error {
+	req, err := s.serviceRequestRepo.GetServiceRequestByRoomNum(roomNum)
+	if err != nil {
+		return fmt.Errorf("service request not found for room %d: %w", roomNum, err)
+	}
+
+	if req.Status == models.ServiceStatusDone {
+		return fmt.Errorf("cannot cancel a completed service request")
+	}
+
+	// Optional: Add a "Cancelled" status in your model constants
+	req.Status = models.ServiceStatus("Cancelled")
+
+	return s.serviceRequestRepo.UpdateServiceRequest(req)
 }

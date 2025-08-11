@@ -7,8 +7,9 @@ import (
 )
 
 type IServiceRequestService interface {
-	ServiceRequest(ctx context.Context, roomNum int, reqType models.ServiceType) error
+	ServiceRequestGetter(context.Context,int,models.ServiceType,string) error
 	GetPendingRequestCount() (int, error)
 	ViewAllServiceRequests() ([]models.ServiceRequest, error)
 	ViewUnassignedServiceRequest() ([]models.ServiceRequest,error)
+	CancelServiceRequestByRoomNum(roomNum int) error
 }

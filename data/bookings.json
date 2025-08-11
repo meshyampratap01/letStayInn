@@ -74,5 +74,17 @@
     "feedback_id": [
       "e3b288ba-4b5c-4001-9d9e-80d8720fabbb"
     ]
+  },
+  {
+    "id": "00304877-7c09-4f8f-99ae-df0370cc2a03",
+    "user_id": "93dc38f3-f2e3-40a2-8efe-e5d399864de4",
+    "room_id": "r3",
+    "room_num": 201,
+    "check_in": "2025-08-19T00:00:00Z",
+    "check_out": "2025-08-19T00:00:00Z",
+    "status": "Cancelled",
+    "food_req": false,
+    "clean_req": false,
+    "feedback_id": null
   }
 ]

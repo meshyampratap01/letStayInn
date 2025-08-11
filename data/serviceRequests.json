@@ -7,7 +7,8 @@
     "type": "Food",
     "status": "Done",
     "created_at": "2025-08-08T05:31:32+05:30",
-    "is_assigned": true
+    "is_assigned": true,
+    "details": ""
   },
   {
     "id": "a872f5df-09d8-46c2-b5e7-f0c033806a0a",
@@ -17,7 +18,8 @@
     "type": "Cleaning",
     "status": "Pending",
     "created_at": "2025-08-08T05:31:46+05:30",
-    "is_assigned": false
+    "is_assigned": false,
+    "details": ""
   },
   {
     "id": "86a2b530-79ac-4d04-99e2-81fc5821dce5",
@@ -27,7 +29,8 @@
     "type": "Food",
     "status": "Pending",
     "created_at": "2025-08-08T08:19:08+05:30",
-    "is_assigned": false
+    "is_assigned": false,
+    "details": ""
   },
   {
     "id": "d2fd6daa-29ec-4ed7-b47e-41931b0f78b2",
@@ -37,7 +40,8 @@
     "type": "Food",
     "status": "Pending",
     "created_at": "2025-08-08T09:15:48+05:30",
-    "is_assigned": false
+    "is_assigned": false,
+    "details": ""
   },
   {
     "id": "390bb589-3e9d-4fd7-aaff-14f13edc2e08",
@@ -47,7 +51,8 @@
     "type": "Food",
     "status": "Pending",
     "created_at": "2025-08-08T11:18:18+05:30",
-    "is_assigned": false
+    "is_assigned": false,
+    "details": ""
   },
   {
     "id": "abe4d6bf-5c77-4b12-8526-f360c35c0ec0",
@@ -57,6 +62,18 @@
     "type": "Cleaning",
     "status": "Pending",
     "created_at": "2025-08-08T11:18:26+05:30",
-    "is_assigned": false
+    "is_assigned": false,
+    "details": ""
+  },
+  {
+    "id": "22ca7de7-fcc6-49d3-a1bf-cebed43e04f3",
+    "user_id": "93dc38f3-f2e3-40a2-8efe-e5d399864de4",
+    "booking_id": "00304877-7c09-4f8f-99ae-df0370cc2a03",
+    "room_num": 201,
+    "type": "Food",
+    "status": "Pending",
+    "created_at": "2025-08-09T23:47:13+05:30",
+    "is_assigned": false,
+    "details": "i want good things to eat..."
   }
 ]

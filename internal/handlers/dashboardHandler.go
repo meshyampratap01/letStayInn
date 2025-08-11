@@ -121,12 +121,10 @@ func (h *DashboardHandler) managerDashboard(ctx context.Context) {
 		fmt.Println(optionStyle("2.") + " Room Management")
 		fmt.Println(optionStyle("3.") + " View Bookings and Guests")
 		fmt.Println(optionStyle("4.") + " Manage Staff")
-		fmt.Println(optionStyle("5.") + " View All Guest Service Requests")
-		fmt.Println(optionStyle("6.") + " View Unassigned Guest Service Requests")
-		fmt.Println(optionStyle("7.") + " Assign Task to Employee")
-		fmt.Println(optionStyle("8.") + " Generate Reports")
-		fmt.Println(optionStyle("9.") + " View Guest Feedback")
-		fmt.Println(optionStyle("10.") + " Logout")
+		fmt.Println(optionStyle("5.") + " Manage Service Requests")
+		fmt.Println(optionStyle("6.") + " Generate Reports")
+		fmt.Println(optionStyle("7.") + " View Guest Feedback")
+		fmt.Println(optionStyle("8.") + " Logout")
 		fmt.Print(promptStyle(config.SelectOption))
 
 		var choice int
@@ -135,72 +133,29 @@ func (h *DashboardHandler) managerDashboard(ctx context.Context) {
 		switch choice {
 		case 1:
 			h.managerHandler.ManagerDashboardSummary()
+
 		case 2:
-		RoomMgmtLoop:
-			for {
-				fmt.Println(titleStyle(config.RoomMgmtTitle))
-				fmt.Println(optionStyle("\n1.") + " List Rooms")
-				fmt.Println(optionStyle("2.") + " Add Room")
-				fmt.Println(optionStyle("3.") + " Update Room")
-				fmt.Println(optionStyle("4.") + " Delete Room")
-				fmt.Println(optionStyle("5.") + " Back")
-				fmt.Print(promptStyle(config.SelectOption))
-				var rchoice int
-				fmt.Scanln(&rchoice)
-				switch rchoice {
-				case 1:
-					h.managerHandler.ListRooms()
-				case 2:
-					h.managerHandler.AddRoom()
-				case 3:
-					h.managerHandler.UpdateRoom()
-				case 4:
-					h.managerHandler.DeleteRoom()
-				case 5:
-					break RoomMgmtLoop
-				default:
-					fmt.Println(errStyle(config.InvalidOption))
-				}
-			}
+			h.managerHandler.roomManagementMenu()
+
 		case 3:
 			h.managerHandler.ListBookingsAndGuests()
+
 		case 4:
-		EmpMgmtLoop:
-			for {
-				fmt.Println(titleStyle(config.EmpMgmtTitle))
-				fmt.Println(optionStyle("\n1.") + " List Employee")
-				fmt.Println(optionStyle("2.") + " Update Employee Availability")
-				fmt.Println(optionStyle("3.") + " Delete Employee")
-				fmt.Println(optionStyle("4.") + " Back")
-				fmt.Print(promptStyle(config.SelectOption))
-				var echoice int
-				fmt.Scanln(&echoice)
-				switch echoice {
-				case 1:
-					h.managerHandler.ListEmployee()
-				case 2:
-					h.managerHandler.UpdateEmployeeAvailability()
-				case 3:
-					h.managerHandler.DeleteEmployee()
-				case 4:
-					break EmpMgmtLoop
-				default:
-					fmt.Println(errStyle(config.InvalidOption))
-				}
-			}
+			h.managerHandler.employeeManagementMenu()
+
 		case 5:
-			h.managerHandler.ViewAllServiceRequests()
+			h.managerHandler.serviceRequestManagementMenu()
+
 		case 6:
-			h.managerHandler.ViewUnassignedServiceRequests()
-		case 7:
-			h.managerHandler.AssignTasksToEmployees()
-		case 8:
 			h.managerHandler.GenerateReport()
-		case 9:
+
+		case 7:
 			h.managerHandler.ViewFeedback(ctx)
-		case 10:
+
+		case 8:
 			fmt.Println(successStyle("Logging out..."))
 			return
+
 		default:
 			fmt.Println(errStyle(config.InvalidOption))
 		}
