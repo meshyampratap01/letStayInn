@@ -20,7 +20,7 @@ type BookingService struct {
 	userRepo	userRepository.UserRepository
 }
 
-func NewBookingService(bookingRepo bookingRepository.BookingRepository, roomRepo roomRepository.IRoomRepository,userRepo userRepository.UserRepository) BookingManager {
+func NewBookingService(bookingRepo bookingRepository.BookingRepository, roomRepo roomRepository.IRoomRepository,userRepo userRepository.UserRepository) IBookingService {
 	return &BookingService{
 		bookingRepo: bookingRepo,
 		roomRepo:    roomRepo,

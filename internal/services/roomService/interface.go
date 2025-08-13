@@ -2,7 +2,7 @@ package roomService
 
 import "github.com/meshyampratap01/letStayInn/internal/models"
 
-type RoomServiceManager interface {
+type IRoomService interface {
 	GetAvailableRooms() ([]models.Room, error)
 	GetTotalRooms() (int, error)
 	GetTotalAvailableRooms() (int,error)

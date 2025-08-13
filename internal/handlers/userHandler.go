@@ -16,12 +16,12 @@ import (
 )
 
 type UserHandler struct {
-	userService      userService.UserManager
+	userService      userService.IUserService
 	DashboardHandler *DashboardHandler
-	feedbackService  feedbackService.FeedbackServiceManager
+	feedbackService  feedbackService.IFeedbackService
 }
 
-func NewUserHandler(us userService.UserManager, DashboardHandler *DashboardHandler, fs feedbackService.FeedbackServiceManager) *UserHandler {
+func NewUserHandler(us userService.IUserService, DashboardHandler *DashboardHandler, fs feedbackService.IFeedbackService) *UserHandler {
 	return &UserHandler{
 		userService:      us,
 		DashboardHandler: DashboardHandler,

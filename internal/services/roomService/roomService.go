@@ -12,7 +12,7 @@ type RoomService struct {
 	roomRepo roomRepository.IRoomRepository
 }
 
-func NewRoomService(roomRepo roomRepository.IRoomRepository) RoomServiceManager {
+func NewRoomService(roomRepo roomRepository.IRoomRepository) IRoomService {
 	return &RoomService{
 		roomRepo: roomRepo,
 	}

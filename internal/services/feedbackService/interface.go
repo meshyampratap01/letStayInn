@@ -3,6 +3,6 @@ package feedbackService
 import "context"
 
 
-type FeedbackServiceManager interface {
+type IFeedbackService interface {
 	SubmitFeedback(ctx context.Context) error
 }

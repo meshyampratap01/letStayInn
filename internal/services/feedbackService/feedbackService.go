@@ -22,7 +22,7 @@ type FeedbackService struct {
 }
 
 func NewFeedbackService(feedbackRepo feedbackRepository.FeedbackRepository,
-	bookingRepo bookingRepository.BookingRepository) FeedbackServiceManager {
+	bookingRepo bookingRepository.BookingRepository) IFeedbackService {
 	return &FeedbackService{
 		feedbackRepo: feedbackRepo,
 		bookingRepo:  bookingRepo,

@@ -24,9 +24,9 @@ var (
 )
 
 type DashboardHandler struct {
-	RoomService           roomService.RoomServiceManager
-	BookingService        bookingService.BookingManager
-	FeedbackService       feedbackService.FeedbackServiceManager
+	RoomService           roomService.IRoomService
+	BookingService        bookingService.IBookingService
+	FeedbackService       feedbackService.IFeedbackService
 	ServiceRequestService servicerequest.IServiceRequestService
 	BookingHandler        *BookingHandler
 	ServiceRequestHandler *ServiceRequestHandler
@@ -36,9 +36,9 @@ type DashboardHandler struct {
 }
 
 func NewDashboardHandler(
-	roomSvc roomService.RoomServiceManager,
-	bookingSvc bookingService.BookingManager,
-	feedbackSvc feedbackService.FeedbackServiceManager,
+	roomSvc roomService.IRoomService,
+	bookingSvc bookingService.IBookingService,
+	feedbackSvc feedbackService.IFeedbackService,
 	serviceReqSvc servicerequest.IServiceRequestService,
 	bh *BookingHandler,
 	ServiceRequestHandler *ServiceRequestHandler,

@@ -7,21 +7,20 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/meshyampratap01/letStayInn/internal/config"
-	"github.com/meshyampratap01/letStayInn/internal/services"
 	"github.com/meshyampratap01/letStayInn/internal/services/bookingService"
 	"github.com/meshyampratap01/letStayInn/internal/services/roomService"
-	"github.com/meshyampratap01/letStayInn/internal/validators"
 	"github.com/meshyampratap01/letStayInn/internal/utils"
+	"github.com/meshyampratap01/letStayInn/internal/validators"
 )
 
 type BookingHandler struct {
-	bookingService bookingService.BookingManager
-	roomService    roomService.RoomServiceManager
+	bookingService bookingService.IBookingService
+	roomService    roomService.IRoomService
 }
 
 func NewBookingHandler(
-	bookingService bookingService.BookingManager,
-	roomService roomService.RoomServiceManager,
+	bookingService bookingService.IBookingService,
+	roomService roomService.IRoomService,
 ) *BookingHandler {
 	return &BookingHandler{
 		bookingService: bookingService,
@@ -33,13 +32,13 @@ func (h *BookingHandler) ViewRoomsHandler() {
 	rooms, err := h.roomService.GetAvailableRooms()
 	if err != nil {
 		color.Red(config.MsgErrorFindingRooms, err)
-		services.AddBackButton()
+		utils.AddBackButton()
 		return
 	}
 
 	if len(rooms) == 0 {
 		color.Yellow("No available rooms found.")
-		services.AddBackButton()
+		utils.AddBackButton()
 		return
 	}
 
@@ -64,7 +63,7 @@ func (h *BookingHandler) ViewRoomsHandler() {
 	}
 
 	fmt.Println(strings.Repeat("-", 70))
-	services.AddBackButton()
+	utils.AddBackButton()
 }
 
 func (h *BookingHandler) BookRoomHandler(ctx context.Context) {
@@ -72,12 +71,12 @@ func (h *BookingHandler) BookRoomHandler(ctx context.Context) {
 	rooms, err := h.roomService.GetAvailableRooms()
 	if err != nil {
 		color.Red(config.MsgErrorFindingRooms, err)
-		services.AddBackButton()
+		utils.AddBackButton()
 		return
 	}
 	if len(rooms) == 0 {
 		color.Yellow(config.MsgNoAvailableRooms)
-		services.AddBackButton()
+		utils.AddBackButton()
 		return
 	}
 
@@ -92,7 +91,7 @@ func (h *BookingHandler) BookRoomHandler(ctx context.Context) {
 			availability = color.RedString("Occupied")
 		}
 
-		fmt.Printf("%-10d %-15s %-12.2f %-15s %-30s\n",
+		fmt.Printf("%-10d %-15s %-12.2f %-28s %-30s\n",
 			r.Number,
 			r.Type,
 			r.Price,
@@ -140,7 +139,7 @@ func (h *BookingHandler) BookRoomHandler(ctx context.Context) {
 	} else {
 		color.Green(config.MsgBookingSuccess)
 	}
-	services.AddBackButton()
+	utils.AddBackButton()
 }
 
 func (h *BookingHandler) CancelBookingHandler(ctx context.Context) {
@@ -149,13 +148,13 @@ func (h *BookingHandler) CancelBookingHandler(ctx context.Context) {
 	bookings, err := h.bookingService.GetUserActiveBookings(ctx)
 	if err != nil {
 		color.Red(config.MsgFailedFetchBookings, err)
-		services.AddBackButton()
+		utils.AddBackButton()
 		return
 	}
 
 	if len(bookings) == 0 {
 		color.Yellow(config.MsgNoBookingsToCancel)
-		services.AddBackButton()
+		utils.AddBackButton()
 		return
 	}
 
@@ -171,7 +170,7 @@ func (h *BookingHandler) CancelBookingHandler(ctx context.Context) {
 
 	if choice < 1 || choice > len(bookings) {
 		color.Red(config.MsgInvalidChoice)
-		services.AddBackButton()
+		utils.AddBackButton()
 		return
 	}
 
@@ -182,7 +181,7 @@ func (h *BookingHandler) CancelBookingHandler(ctx context.Context) {
 	} else {
 		color.Green(config.MsgCancelSuccess)
 	}
-	services.AddBackButton()
+	utils.AddBackButton()
 }
 
 func (h *BookingHandler) ViewMyBookingsHandler(ctx context.Context) {
@@ -190,13 +189,13 @@ func (h *BookingHandler) ViewMyBookingsHandler(ctx context.Context) {
 	bookings, err := h.bookingService.GetUserActiveBookings(ctx)
 	if err != nil {
 		color.Red(config.MsgFailedFetchBookings, err)
-		services.AddBackButton()
+		utils.AddBackButton()
 		return
 	}
 
 	if len(bookings) == 0 {
 		color.Yellow(config.MsgNoBookings)
-		services.AddBackButton()
+		utils.AddBackButton()
 		return
 	}
 
@@ -205,5 +204,5 @@ func (h *BookingHandler) ViewMyBookingsHandler(ctx context.Context) {
 			b.RoomNum, b.Status, b.CheckIn.Format("02-01-2006"))
 	}
 
-	services.AddBackButton()
+	utils.AddBackButton()
 }

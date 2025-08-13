@@ -19,14 +19,14 @@ import (
 )
 
 type ManagerHandler struct {
-	roomService           roomService.RoomServiceManager
-	bookingService        bookingService.BookingManager
-	userService           userService.UserManager
+	roomService           roomService.IRoomService
+	bookingService        bookingService.IBookingService
+	userService           userService.IUserService
 	serviceRequestService servicerequest.IServiceRequestService
 	managerService        managerservice.IManagerService
 }
 
-func NewManagerHandler(rs roomService.RoomServiceManager, bs bookingService.BookingManager, us userService.UserManager, srs servicerequest.IServiceRequestService, ms managerservice.IManagerService) *ManagerHandler {
+func NewManagerHandler(rs roomService.IRoomService, bs bookingService.IBookingService, us userService.IUserService, srs servicerequest.IServiceRequestService, ms managerservice.IManagerService) *ManagerHandler {
 	return &ManagerHandler{
 		roomService:           rs,
 		bookingService:        bs,
