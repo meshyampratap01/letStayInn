@@ -1,0 +1,51 @@
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+
+# Output of build tools
+/dist/
+/build/
+/bin/
+
+# Go workspace file
+*.code-workspace
+
+# Go modules
+/go.sum
+
+# Dependency directories (vendor/)
+vendor/
+
+# IDE/editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*.bak
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Environment files
+.env
+.env.*
+
+# Logs
+*.log
+
+# Data files
+/data/*.json
+
+# Test output
+*.out
+
+# Coverage files
+coverage*
+
+# Node modules (if any)
+node_modules/

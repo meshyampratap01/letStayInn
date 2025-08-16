@@ -1,132 +1,67 @@
 package serviceRequestRepository
 
 import (
-	"fmt"
-	"time"
-
-	"github.com/meshyampratap01/letStayInn/internal/config"
 	"github.com/meshyampratap01/letStayInn/internal/models"
-	"github.com/meshyampratap01/letStayInn/internal/storage"
+	"gorm.io/gorm"
 )
 
-type FileServiceRequestRepository struct{}
-
-func NewFileServiceRequestRepository() ServiceRequestRepository {
-	return &FileServiceRequestRepository{}
+type GormServiceRequestRepository struct {
+	db *gorm.DB
 }
 
-func (db *FileServiceRequestRepository) LoadServiceRequests() ([]models.ServiceRequest, error) {
+func NewGormServiceRequestRepository(db *gorm.DB) ServiceRequestRepository {
+	return &GormServiceRequestRepository{db: db}
+}
+
+func (r *GormServiceRequestRepository) LoadServiceRequests() ([]models.ServiceRequest, error) {
 	var requests []models.ServiceRequest
-	err := storage.ReadJson(config.ServiceRequestFile, &requests)
+	err := r.db.Find(&requests).Error
 	return requests, err
 }
 
-func (db *FileServiceRequestRepository) SaveServiceRequests(requests []models.ServiceRequest) error {
-	return storage.WriteJson(config.ServiceRequestFile, requests)
-}
-
-func (r *FileServiceRequestRepository) GetUnassignedRequests() ([]models.ServiceRequest, error) {
-	requests, err := r.LoadServiceRequests()
-	if err != nil {
-		return nil, err
-	}
-
-	var unassigned []models.ServiceRequest
+func (r *GormServiceRequestRepository) SaveServiceRequests(requests []models.ServiceRequest) error {
 	for _, req := range requests {
-		if (!req.IsAssigned || req.Status == models.ServiceStatusPending) && req.Status!=models.ServiceStatusCancelled {
-			unassigned = append(unassigned, req)
+		if err := r.db.Save(&req).Error; err != nil {
+			return err
 		}
 	}
-	return unassigned, nil
-}
-
-func (r *FileServiceRequestRepository) UpdateIsAssigned(reqID string, isAssigned bool) error {
-	requests, err := r.LoadServiceRequests()
-	if err != nil {
-		return fmt.Errorf("failed to load service requests: %w", err)
-	}
-
-	updated := false
-	for i, req := range requests {
-		if req.ID == reqID {
-			requests[i].IsAssigned = isAssigned
-			requests[i].UpdatedAt = time.Now()
-			updated = true
-			break
-		}
-	}
-
-	if !updated {
-		return fmt.Errorf("service request with ID %s not found", reqID)
-	}
-
-	if err := r.SaveServiceRequests(requests); err != nil {
-		return fmt.Errorf("failed to save updated service requests: %w", err)
-	}
-
 	return nil
 }
 
-func (r *FileServiceRequestRepository) GetServiceRequestByRoomNum(roomNum int) (*models.ServiceRequest, error) {
-	requests, err := r.LoadServiceRequests()
+func (r *GormServiceRequestRepository) GetUnassignedRequests() ([]models.ServiceRequest, error) {
+	var requests []models.ServiceRequest
+	err := r.db.Where("(is_assigned = ? OR status = ?) AND status != ?", false, models.ServiceStatusPending, models.ServiceStatusCancelled).Find(&requests).Error
+	return requests, err
+}
+
+func (r *GormServiceRequestRepository) GetServiceRequestByRoomNum(roomNum int) (*models.ServiceRequest, error) {
+	var req models.ServiceRequest
+	err := r.db.Where("room_num = ?", roomNum).First(&req).Error
 	if err != nil {
 		return nil, err
 	}
-
-	for _, req := range requests {
-		if req.RoomNum == roomNum {
-			copy := req
-			return &copy, nil
-		}
-	}
-	return nil, fmt.Errorf("service request for room %d not found", roomNum)
+	return &req, nil
 }
 
-func (r *FileServiceRequestRepository) GetServiceRequestByReqID(id string) (*models.ServiceRequest, error) {
-	requests, err := r.LoadServiceRequests()
+func (r *GormServiceRequestRepository) GetServiceRequestByReqID(id string) (*models.ServiceRequest, error) {
+	var req models.ServiceRequest
+	err := r.db.First(&req, "id = ?", id).Error
 	if err != nil {
 		return nil, err
 	}
-	for _, req := range requests {
-		if req.ID == id {
-			return &req, nil
-		}
-	}
-	return nil, fmt.Errorf("service request with ID %s not found", id)
+	return &req, nil
 }
 
-func (r *FileServiceRequestRepository) UpdateServiceRequest(req *models.ServiceRequest) error {
-	requests, err := r.LoadServiceRequests()
-	if err != nil {
-		return err
-	}
-
-	updated := false
-	for i := range requests {
-		if requests[i].ID == req.ID {
-			requests[i] = *req
-			updated = true
-			break
-		}
-	}
-
-	if !updated {
-		return fmt.Errorf("service request with id %s not found", req.ID)
-	}
-
-	return r.SaveServiceRequests(requests)
+func (r *GormServiceRequestRepository) UpdateServiceRequest(req *models.ServiceRequest) error {
+	return r.db.Save(req).Error
 }
 
-func (r *FileServiceRequestRepository) GetAssignedServiceRequests(employeeID string) ([]models.ServiceRequest, error) {
-	requests, err := r.LoadServiceRequests()
-	if err != nil {
-		return nil, err
-	}
-	var assigned []models.ServiceRequest
-	for _, req := range requests {
-		if req.AssignedTo == employeeID {
-			assigned = append(assigned, req)
-		}
-	}
-	return assigned, nil
+func (r *GormServiceRequestRepository) GetAssignedServiceRequests(employeeID string) ([]models.ServiceRequest, error) {
+	var requests []models.ServiceRequest
+	err := r.db.Where("assigned_to = ?", employeeID).Find(&requests).Error
+	return requests, err
+}
+
+func (r *GormServiceRequestRepository) UpdateIsAssigned(reqID string, isAssigned bool) error {
+	return r.db.Model(&models.ServiceRequest{}).Where("id = ?", reqID).Update("is_assigned", isAssigned).Error
 }

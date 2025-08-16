@@ -1,101 +1,60 @@
 package bookingRepository
 
 import (
-	"fmt"
-
-	"github.com/meshyampratap01/letStayInn/internal/config"
 	"github.com/meshyampratap01/letStayInn/internal/models"
-	"github.com/meshyampratap01/letStayInn/internal/storage"
+	"gorm.io/gorm"
 )
 
-type FileBookingRepository struct{}
-
-func NewFileBookingRepository() BookingRepository {
-	return &FileBookingRepository{}
+type GormBookingRepository struct {
+	db *gorm.DB
 }
 
-func (db *FileBookingRepository) GetAllBookings() ([]models.Booking, error) {
+func NewGormBookingRepository(db *gorm.DB) BookingRepository {
+	return &GormBookingRepository{db: db}
+}
+
+func (r *GormBookingRepository) GetAllBookings() ([]models.Booking, error) {
 	var bookings []models.Booking
-	err := storage.ReadJson(config.BookingsFile, &bookings)
+	err := r.db.Find(&bookings).Error
 	return bookings, err
 }
 
-func (db *FileBookingRepository) SaveBookings(bookings []models.Booking) error {
-	return storage.WriteJson(config.BookingsFile, bookings)
-}
-
-func (db *FileBookingRepository) GetBookingsByUserID(userID string) ([]models.Booking, error) {
-	bookings, err := db.GetAllBookings()
-	if err != nil {
-		return nil, err
-	}
-	var result []models.Booking
-	for _, b := range bookings {
-		if b.UserID == userID {
-			result = append(result, b)
-		}
-	}
-	return result, nil
-}
-
-func (db *FileBookingRepository) UpdateBooking(updated models.Booking) error {
-	bookings, err := db.GetAllBookings()
-	if err != nil {
-		return err
-	}
-
-	for i := range bookings {
-		if bookings[i].ID == updated.ID {
-			bookings[i] = updated
-			break
-		}
-	}
-	return db.SaveBookings(bookings)
-}
-
-func (br *FileBookingRepository) GetBookingByID(bookingID string) (*models.Booking, error) {
-	bookings, err := br.GetAllBookings()
-	if err != nil {
-		return nil, fmt.Errorf("failed to load bookings: %w", err)
-	}
-
+func (r *GormBookingRepository) SaveBookings(bookings []models.Booking) error {
 	for _, booking := range bookings {
-		if booking.ID == bookingID {
-			return &booking, nil
+		if err := r.db.Save(&booking).Error; err != nil {
+			return err
 		}
 	}
-
-	return nil, fmt.Errorf("booking with ID %s not found", bookingID)
+	return nil
 }
 
-func (r *FileBookingRepository) GetActiveBookings() ([]models.Booking, error) {
-	bookings, err := r.GetAllBookings()
+func (r *GormBookingRepository) GetBookingsByUserID(userID string) ([]models.Booking, error) {
+	var bookings []models.Booking
+	err := r.db.Where("user_id = ?", userID).Find(&bookings).Error
+	return bookings, err
+}
+
+func (r *GormBookingRepository) UpdateBooking(updated models.Booking) error {
+	return r.db.Save(&updated).Error
+}
+
+func (r *GormBookingRepository) GetBookingByID(bookingID string) (*models.Booking, error) {
+	var booking models.Booking
+	err := r.db.First(&booking, "id = ?", bookingID).Error
 	if err != nil {
 		return nil, err
 	}
-
-	activeBookings := []models.Booking{}
-	for _, b := range bookings {
-		if b.Status != models.BookingStatusCancelled {
-			activeBookings = append(activeBookings, b)
-		}
-	}
-
-	return activeBookings, nil
+	return &booking, nil
 }
 
-func (br *FileBookingRepository) CheckRoomBooked(roomNumber int) (bool, error) {
-	bookings, err := br.GetAllBookings()
-	if err != nil {
-		return false, err
-	}
-
-	for _, b := range bookings {
-		if b.RoomNum == roomNumber && b.Status == models.BookingStatusBooked {
-			return true, nil
-		}
-	}
-
-	return false, nil
+func (r *GormBookingRepository) GetActiveBookings() ([]models.Booking, error) {
+	var bookings []models.Booking
+	err := r.db.Where("status != ?", models.BookingStatusCancelled).Find(&bookings).Error
+	return bookings, err
 }
 
+func (r *GormBookingRepository) CheckRoomBooked(roomNumber int) (bool, error) {
+	var count int64
+	err := r.db.Model(&models.Booking{}).Where("room_num = ? AND status = ?", roomNumber, models.BookingStatusBooked).Count(&count).Error
+	return count > 0, err
+}

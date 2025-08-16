@@ -1,6 +1,10 @@
 package models
 
-import "time"
+import (
+	"time"
+
+	"gorm.io/gorm"
+)
 
 type ServiceType string
 type ServiceStatus string
@@ -18,15 +22,21 @@ const (
 )
 
 type ServiceRequest struct {
-	ID          string        `json:"id"`            // Primary Key
-	UserID      string        `json:"user_id"`       // FK → Users
-	BookingID   string        `json:"booking_id"`    // FK → Bookings
-	RoomNum     int           `json:"room_num"`      // Redundant but useful for quick lookup
-	Type        ServiceType   `json:"type"`          // Cleaning / Food
-	Status      ServiceStatus `json:"status"`        // Pending / In Progress / Done / Cancelled
-	IsAssigned  bool          `json:"is_assigned"`   // Assigned or not
-	AssignedTo  string        `json:"assigned_to"`   // FK → Employees (UserID of staff)
-	Details     string        `json:"details"`       // Additional description
-	CreatedAt   time.Time     `json:"created_at"`    // When request was created
-	UpdatedAt   time.Time     `json:"updated_at"`    // Last update time
+	ID         string         `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"` // Primary Key
+	UserID     string         `gorm:"type:uuid;not null" json:"user_id"`                        // FK → Users
+	BookingID  string         `gorm:"type:uuid" json:"booking_id"`                              // FK → Bookings
+	RoomNum    int            `json:"room_num"`                                                 // Redundant but useful for quick lookup
+	Type       ServiceType    `json:"type"`                                                     // Cleaning / Food
+	Status     ServiceStatus  `json:"status"`                                                   // Pending / In Progress / Done / Cancelled
+	IsAssigned bool           `json:"is_assigned"`                                              // Assigned or not
+	AssignedTo string         `gorm:"type:uuid" json:"assigned_to"`                             // FK → Employees (UserID of staff)
+	Details    string         `json:"details"`                                                  // Additional description
+	CreatedAt  time.Time      `json:"created_at"`
+	UpdatedAt  time.Time      `json:"updated_at"`
+	DeletedAt  gorm.DeletedAt `gorm:"index" json:"-"`
+
+	// Relationships
+	User    User    `gorm:"foreignKey:UserID"`
+	Booking Booking `gorm:"foreignKey:BookingID"`
+	Staff   User    `gorm:"foreignKey:AssignedTo"`
 }

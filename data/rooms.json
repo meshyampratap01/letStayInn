@@ -62,5 +62,13 @@
     "price": 3500,
     "is_available": true,
     "description": "Top-floor suite with city view"
+  },
+  {
+    "id": "5b294282-7081-4464-88e6-a16bf5f4ac9a",
+    "number": 0,
+    "type": "shyam'gf",
+    "price": -80,
+    "is_available": false,
+    "description": "massaaa"
   }
 ]

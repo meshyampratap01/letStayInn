@@ -1,6 +1,7 @@
 package container
 
 import (
+	"github.com/meshyampratap01/letStayInn/internal/db"
 	"github.com/meshyampratap01/letStayInn/internal/handlers"
 	"github.com/meshyampratap01/letStayInn/internal/repository/bookingRepository"
 	"github.com/meshyampratap01/letStayInn/internal/repository/feedbackRepository"
@@ -18,11 +19,11 @@ import (
 
 func InitHandlers() *handlers.UserHandler {
 
-	userRepo := userRepository.NewFileUserRepository()
-	roomRepo := roomRepository.NewRoomRepository()
-	bookingRepo := bookingRepository.NewFileBookingRepository()
-	feedbackRepo := feedbackRepository.NewFileFeedbackRepository()
-	serviceReqRepo := serviceRequestRepository.NewFileServiceRequestRepository()
+	userRepo := userRepository.NewGormUserRepository(db.DB)
+	roomRepo := roomRepository.NewGormRoomRepository(db.DB)
+	bookingRepo := bookingRepository.NewGormBookingRepository(db.DB)
+	feedbackRepo := feedbackRepository.NewGormFeedbackRepository(db.DB)
+	serviceReqRepo := serviceRequestRepository.NewGormServiceRequestRepository(db.DB)
 
 	userSvc := userService.NewUserService(userRepo)
 	roomSvc := roomService.NewRoomService(roomRepo)
@@ -37,7 +38,7 @@ func InitHandlers() *handlers.UserHandler {
 	managerHandler := handlers.NewManagerHandler(roomSvc, bookingSvc, userSvc, serviceReqSvc, managerSvc)
 	employeeHandler := handlers.NewEmployeeHandler(employeeSvc)
 	feedbackHandler := handlers.NewFeedbackHandler(feedbackSvc)
-	dashboardHandler := handlers.NewDashboardHandler(roomSvc, bookingSvc, feedbackSvc, serviceReqSvc, bookingHandler, serviceReqHandler, managerHandler, employeeSvc, employeeHandler,feedbackHandler)
+	dashboardHandler := handlers.NewDashboardHandler(roomSvc, bookingSvc, feedbackSvc, serviceReqSvc, bookingHandler, serviceReqHandler, managerHandler, employeeSvc, employeeHandler, feedbackHandler)
 
 	CLIUserHandler := handlers.NewUserHandler(userSvc, dashboardHandler, feedbackSvc)
 	return CLIUserHandler

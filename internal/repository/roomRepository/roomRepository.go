@@ -1,81 +1,50 @@
 package roomRepository
 
+
 import (
 	"fmt"
-
-	"github.com/meshyampratap01/letStayInn/internal/config"
 	"github.com/meshyampratap01/letStayInn/internal/models"
-	"github.com/meshyampratap01/letStayInn/internal/storage"
+	"gorm.io/gorm"
 )
 
-type RoomRepository struct{}
-
-func NewRoomRepository() IRoomRepository {
-	return &RoomRepository{}
+type GormRoomRepository struct {
+	db *gorm.DB
 }
 
-func (rr *RoomRepository) GetAllRooms() ([]models.Room, error) {
+func NewGormRoomRepository(db *gorm.DB) IRoomRepository {
+	return &GormRoomRepository{db: db}
+}
+
+func (r *GormRoomRepository) GetAllRooms() ([]models.Room, error) {
 	var rooms []models.Room
-	err := storage.ReadJson(config.RoomsFile, &rooms)
+	err := r.db.Find(&rooms).Error
 	return rooms, err
 }
 
-func (rr *RoomRepository) SaveRooms(rooms []models.Room) error {
-	return storage.WriteJson(config.RoomsFile, rooms)
-}
-
-func (rr *RoomRepository) GetAvailableRooms() ([]models.Room, error) {
-	rooms, err := rr.GetAllRooms()
-	if err != nil {
-		return nil, err
-	}
-	var available []models.Room
-	for _, r := range rooms {
-		if r.IsAvailable {
-			available = append(available, r)
-		}
-	}
-	return available, nil
-}
-
-func (r *RoomRepository) AddRoom(room models.Room) error {
-	rooms, err := r.GetAllRooms()
-	if err != nil {
-		return err
-	}
-	rooms = append(rooms, room)
-	return r.SaveRooms(rooms)
-}
-
-func (rr *RoomRepository) GetRoomNumberByBookingID(bookingID string) (string, error) {
-
-	var bookings []models.Booking
-	err := storage.ReadJson(config.BookingsFile, &bookings)
-	if err!=nil{
-		return "",err
-	}
-
-	var foundBooking *models.Booking
-	for _, booking := range bookings {
-		if booking.ID == bookingID {
-			foundBooking = &booking
-			break
-		}
-	}
-	if foundBooking == nil {
-		return "", fmt.Errorf("booking with ID %s not found", bookingID)
-	}
-
-	rooms, err := rr.GetAllRooms()
-	if err != nil {
-		return "", fmt.Errorf("failed to load rooms: %w", err)
-	}
-
+func (r *GormRoomRepository) SaveRooms(rooms []models.Room) error {
 	for _, room := range rooms {
-		if room.ID == foundBooking.RoomID {
-			return fmt.Sprintf("%d", room.Number), nil
+		if err := r.db.Save(&room).Error; err != nil {
+			return err
 		}
 	}
+	return nil
+}
 
-	return "", fmt.Errorf("room with ID %s not found", foundBooking.RoomID)
+func (r *GormRoomRepository) GetAvailableRooms() ([]models.Room, error) {
+	var rooms []models.Room
+	err := r.db.Where("is_available = ?", true).Find(&rooms).Error
+	return rooms, err
+}
+
+func (r *GormRoomRepository) AddRoom(room models.Room) error {
+	return r.db.Create(&room).Error
+}
+
+func (r *GormRoomRepository) GetRoomNumberByBookingID(bookingID string) (string, error) {
+	var booking models.Booking
+	err := r.db.First(&booking, "id = ?", bookingID).Error
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%d", booking.RoomNum), nil
 }

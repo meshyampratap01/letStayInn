@@ -1,32 +1,24 @@
 package feedbackRepository
 
 import (
-	"github.com/meshyampratap01/letStayInn/internal/config"
 	"github.com/meshyampratap01/letStayInn/internal/models"
-	"github.com/meshyampratap01/letStayInn/internal/storage"
+	"gorm.io/gorm"
 )
 
-type FileFeedbackRepository struct{}
-
-func NewFileFeedbackRepository() FeedbackRepository{
-	return &FileFeedbackRepository{}
+type GormFeedbackRepository struct {
+	db *gorm.DB
 }
 
-func (db *FileFeedbackRepository)SaveFeedback(f models.Feedback) error {
-	var feedbacks []models.Feedback
-	if err := storage.ReadJson(config.FeedbackFile, &feedbacks); err != nil {
-		return err
-	}
-	feedbacks = append(feedbacks, f)
-	return storage.WriteJson(config.FeedbackFile, feedbacks)
+func NewGormFeedbackRepository(db *gorm.DB) FeedbackRepository {
+	return &GormFeedbackRepository{db: db}
 }
 
+func (r *GormFeedbackRepository) SaveFeedback(f models.Feedback) error {
+	return r.db.Create(&f).Error
+}
 
-func (repo *FileFeedbackRepository) GetAllFeedback() ([]models.Feedback, error) {
+func (r *GormFeedbackRepository) GetAllFeedback() ([]models.Feedback, error) {
 	var feedbacks []models.Feedback
-	err := storage.ReadJson(config.FeedbackFile, &feedbacks)
-	if err != nil {
-		return nil, err
-	}
-	return feedbacks, nil
+	err := r.db.Find(&feedbacks).Error
+	return feedbacks, err
 }
