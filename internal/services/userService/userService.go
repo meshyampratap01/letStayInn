@@ -5,12 +5,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/eiannone/keyboard"
 	"github.com/meshyampratap01/letStayInn/internal/auth"
-	"github.com/meshyampratap01/letStayInn/internal/config"
 	"github.com/meshyampratap01/letStayInn/internal/models"
 	"github.com/meshyampratap01/letStayInn/internal/repository/userRepository"
-	"github.com/meshyampratap01/letStayInn/internal/storage"
 	"github.com/meshyampratap01/letStayInn/internal/utils"
 )
 
@@ -39,31 +36,25 @@ func (s *UserService) Signup(name, email, password string, roleint int) (string,
 	return "Signup successful as Guest!! Please login.", nil
 }
 
-func (s *UserService) Login(email, password string) (*models.User, error) {
-	var users []models.User
-	storage.ReadJson(config.UsersFile, &users)
+func (s *UserService) GetUserByEmail(email string) (*models.User, error) {
+	email = strings.TrimSpace(email)
+	return s.userRepo.GetUserByEmail(email)
+}
 
-	user := s.userRepo.FindUserByEmail(users, strings.TrimSpace(email))
-	if user == nil || !auth.CheckPassword(user.Password, strings.TrimSpace(password)) {
+func (s *UserService) Login(email, password string) (*models.User, error) {
+	email = strings.TrimSpace(email)
+	password = strings.TrimSpace(password)
+
+	user, err := s.GetUserByEmail(email)
+	if err != nil {
+		return nil, err
+	}
+
+	if !auth.CheckPassword(user.Password, password) {
 		return nil, fmt.Errorf("invalid credentials")
 	}
 
 	return user, nil
-}
-
-func (us *UserService) GetTotalGuests() (int, error) {
-	users, err := us.userRepo.GetAllUsers()
-	if err != nil {
-		return 0, err
-	}
-
-	count := 0
-	for _, u := range users {
-		if u.Role == models.RoleGuest {
-			count++
-		}
-	}
-	return count, nil
 }
 
 func (us *UserService) CreateUser(name, email, password string, role models.Role) models.User {
@@ -78,29 +69,43 @@ func (us *UserService) CreateUser(name, email, password string, role models.Role
 	}
 }
 
-func (us *UserService) ReadPasswordMasked() (string, error) {
-	if err := keyboard.Open(); err != nil {
-		return "", err
+func (s *UserService) CreateEmployee(name, email, password string, role models.Role, available bool) (models.User, error) {
+	if role != models.RoleKitchenStaff && role != models.RoleCleaningStaff && role != models.RoleManager {
+		return models.User{}, fmt.Errorf("invalid role for employee")
 	}
-	defer keyboard.Close()
-	password := ""
-	for {
-		char, key, err := keyboard.GetKey()
-		if err!=nil{
-			return "",err
-		}
-		if key == keyboard.KeyEnter{
-			break
-		} else if key == keyboard.KeyBackspace || key == keyboard.KeyBackspace2{
-			if len(password)>0{
-				password = password[:len(password)-1]
-				fmt.Print("\b \b")
-			}
-		} else{
-			password +=string(char)
-			fmt.Print("*")
+
+	users, err := s.userRepo.GetAllUsers()
+	if err != nil {
+		return models.User{}, fmt.Errorf("failed to fetch users: %v", err)
+	}
+	for _, u := range users {
+		if u.Email == email {
+			return models.User{}, fmt.Errorf("email already in use")
 		}
 	}
-	fmt.Println()
-	return password,nil
+
+	newUser := models.User{
+		ID:        utils.NewUUID(),
+		Name:      name,
+		Email:     email,
+		Password:  auth.HashPassword(password),
+		Role:      role,
+		CreatedAt: time.Now(),
+		Available: available,
+	}
+
+	if err := s.userRepo.SaveUser(newUser); err != nil {
+		return models.User{}, fmt.Errorf("failed to save employee: %v", err)
+	}
+
+	return newUser, nil
+}
+
+func (s *UserService) GetUserNameByID(userID string) (string, error) {
+	user, err := s.userRepo.GetUserByID(userID)
+	if err != nil {
+		return "", fmt.Errorf("failed to fetch user: %w", err)
+	}
+
+	return user.Name, nil
 }

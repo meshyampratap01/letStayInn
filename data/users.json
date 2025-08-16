@@ -9,66 +9,21 @@
     "available": false
   },
   {
-    "id": "cb3c835a-a0fd-4b21-95f8-0dbf3360bc0e",
+    "id": "18531e98-ea77-4f58-9519-33612bbc391d",
     "name": "Asit",
     "email": "asit@gmail.com",
-    "password": "$2a$10$CCkICZ3RZcMp4qR238iE4uod6riKnNAZrhVIG9tPS2hPa1BAoGXO2",
-    "role": "CleaningStaff",
-    "created_at": "2025-08-08T03:58:16.2444952+05:30",
-    "available": false
-  },
-  {
-    "id": "04d9e8d6-4807-47e9-baa0-3ea337609a32",
-    "name": "Mohit",
-    "email": "mohit@gmail.com",
-    "password": "$2a$10$C4TqafnDj9zicDB5kJypjOPq8fhKEe1.bZx7fVeNSc.9YwWKf3RWi",
+    "password": "$2a$10$uac9w95m8fTEh.ZBMyS29emAsciMvTA1xu87SaBQ4JdLGysrD1QU.",
     "role": "KitchenStaff",
-    "created_at": "2025-08-08T04:02:26.8945777+05:30",
+    "created_at": "2025-08-16T01:26:54.5593961+05:30",
     "available": true
   },
   {
-    "id": "93dc38f3-f2e3-40a2-8efe-e5d399864de4",
-    "name": "Aakash",
-    "email": "aakash@gmail.com",
-    "password": "$2a$10$nriFm0Ol3toBYOXpSFt/P.Wpfl5KO626cZKjVHM.qm3Z0BcKruBxm",
+    "id": "c5b7cf56-28c5-48f6-9c87-a6f52ce1c863",
+    "name": "sam",
+    "email": "sam@gmail.com",
+    "password": "$2a$10$yLHytvutMtNbfNrWJMIw0Oi.UQd/6bgHIemPnP54l2yX4Rh0Ai.xa",
     "role": "Guest",
-    "created_at": "2025-08-08T03:17:34.0262727+05:30",
-    "available": false
-  },
-  {
-    "id": "ad47bbf7-fc13-4a60-958a-fb90984b540d",
-    "name": "Shubham Pratap",
-    "email": "shubham@gmail.com",
-    "password": "$2a$10$8xRR4CpAtK2.xfx2HHWjHuYSuu8GxwDO9xUq03sPfXqft.YmHbC8.",
-    "role": "Guest",
-    "created_at": "2025-08-08T08:14:56.0743942+05:30",
-    "available": false
-  },
-  {
-    "id": "c69fc219-7f3d-43d5-9777-08712bd9f1c7",
-    "name": "Jashan",
-    "email": "kuch@example.com",
-    "password": "$2a$10$MOAqHJiVQ6Tu5/TQ0fjmvOTgIX85MJZq6ykQ.ZmvMEUIK9Zi.T3E6",
-    "role": "Guest",
-    "created_at": "2025-08-08T09:11:53.7767002+05:30",
-    "available": false
-  },
-  {
-    "id": "1759246c-f184-404f-9aef-eec13535273c",
-    "name": "asit",
-    "email": "asit1@gmai.com",
-    "password": "$2a$10$DM/SFp.JfhT52/LFGAJxE.4N4xsA/uSDKdkpyCLRyfzU.jP50I1tS",
-    "role": "Guest",
-    "created_at": "2025-08-08T09:45:29.4290107+05:30",
-    "available": false
-  },
-  {
-    "id": "f31ae1d2-15a6-418a-a30b-85c705b42300",
-    "name": "Shyam",
-    "email": "shyam1@gmail.com",
-    "password": "$2a$10$re6mKKdJV1iFfastEAWYLu.gJHrncTQMUOnT.On2eK9NsQzAhRkiW",
-    "role": "Guest",
-    "created_at": "2025-08-08T11:15:03.8266292+05:30",
+    "created_at": "2025-08-16T03:04:31.4659332+05:30",
     "available": false
   }
 ]

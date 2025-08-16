@@ -67,3 +67,35 @@ func (br *FileBookingRepository) GetBookingByID(bookingID string) (*models.Booki
 
 	return nil, fmt.Errorf("booking with ID %s not found", bookingID)
 }
+
+func (r *FileBookingRepository) GetActiveBookings() ([]models.Booking, error) {
+	bookings, err := r.GetAllBookings()
+	if err != nil {
+		return nil, err
+	}
+
+	activeBookings := []models.Booking{}
+	for _, b := range bookings {
+		if b.Status != models.BookingStatusCancelled {
+			activeBookings = append(activeBookings, b)
+		}
+	}
+
+	return activeBookings, nil
+}
+
+func (br *FileBookingRepository) CheckRoomBooked(roomNumber int) (bool, error) {
+	bookings, err := br.GetAllBookings()
+	if err != nil {
+		return false, err
+	}
+
+	for _, b := range bookings {
+		if b.RoomNum == roomNumber && b.Status == models.BookingStatusBooked {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+

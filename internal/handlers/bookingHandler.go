@@ -44,9 +44,10 @@ func (h *BookingHandler) ViewRoomsHandler() {
 
 	color.Cyan(config.TitleAvailableRooms)
 
+	fmt.Println(strings.Repeat("-", 80))
 	fmt.Printf("%-10s %-12s %-10s %-15s %s\n",
 		"Room No", "Type", "Price(Rs)", "Availability", "Description")
-	fmt.Println(strings.Repeat("-", 70))
+	fmt.Println(strings.Repeat("-", 80))
 
 	for _, r := range rooms {
 		availability := "Available"
@@ -62,7 +63,7 @@ func (h *BookingHandler) ViewRoomsHandler() {
 			utils.TruncateString(r.Description, 30))
 	}
 
-	fmt.Println(strings.Repeat("-", 70))
+	fmt.Println(strings.Repeat("-", 80))
 	utils.AddBackButton()
 }
 
@@ -80,7 +81,7 @@ func (h *BookingHandler) BookRoomHandler(ctx context.Context) {
 		return
 	}
 
-	fmt.Println(strings.Repeat("=", 80))
+	fmt.Println(strings.Repeat("-", 80))
 	fmt.Printf("%-10s %-15s %-12s %-20s %-30s\n",
 		"Room No", "Type", "Price (Rs)", "Availability", "Description")
 	fmt.Println(strings.Repeat("-", 80))
@@ -100,7 +101,7 @@ func (h *BookingHandler) BookRoomHandler(ctx context.Context) {
 		)
 	}
 
-	fmt.Println(strings.Repeat("=", 80))
+	fmt.Println(strings.Repeat("-", 80))
 
 	var roomNum int
 	fmt.Print(color.HiWhiteString(config.MsgEnterRoomNumber))

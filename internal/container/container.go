@@ -6,7 +6,6 @@ import (
 	"github.com/meshyampratap01/letStayInn/internal/repository/feedbackRepository"
 	"github.com/meshyampratap01/letStayInn/internal/repository/roomRepository"
 	"github.com/meshyampratap01/letStayInn/internal/repository/serviceRequestRepository"
-	"github.com/meshyampratap01/letStayInn/internal/repository/taskRepository"
 	"github.com/meshyampratap01/letStayInn/internal/repository/userRepository"
 	"github.com/meshyampratap01/letStayInn/internal/services/bookingService"
 	"github.com/meshyampratap01/letStayInn/internal/services/employeeService"
@@ -18,29 +17,28 @@ import (
 )
 
 func InitHandlers() *handlers.UserHandler {
-	
+
 	userRepo := userRepository.NewFileUserRepository()
 	roomRepo := roomRepository.NewRoomRepository()
 	bookingRepo := bookingRepository.NewFileBookingRepository()
 	feedbackRepo := feedbackRepository.NewFileFeedbackRepository()
 	serviceReqRepo := serviceRequestRepository.NewFileServiceRequestRepository()
-	taskRepo := taskRepository.NewFileTaskRepository()
 
 	userSvc := userService.NewUserService(userRepo)
 	roomSvc := roomService.NewRoomService(roomRepo)
 	bookingSvc := bookingService.NewBookingService(bookingRepo, roomRepo, userRepo)
-	feedbackSvc := feedbackService.NewFeedbackService(feedbackRepo, bookingRepo)
+	feedbackSvc := feedbackService.NewFeedbackService(feedbackRepo, bookingRepo, userRepo)
 	serviceReqSvc := servicerequest.NewServiceRequestService(bookingRepo, serviceReqRepo)
-	managerSvc := managerservice.NewManagerService(userRepo, taskRepo, serviceReqRepo, roomRepo, bookingRepo,feedbackRepo)
-	employeeSvc := employeeService.NewEmployeeService(taskRepo,userRepo,roomRepo,bookingRepo,serviceReqRepo)
-	
+	managerSvc := managerservice.NewManagerService(userRepo, serviceReqRepo, roomRepo, bookingRepo, feedbackRepo)
+	employeeSvc := employeeService.NewEmployeeService(userRepo, roomRepo, bookingRepo, serviceReqRepo)
 
 	bookingHandler := handlers.NewBookingHandler(bookingSvc, roomSvc)
-	serviceReqHandler := handlers.NewServiceRequestHandler(serviceReqSvc, bookingRepo)
+	serviceReqHandler := handlers.NewServiceRequestHandler(serviceReqSvc, bookingSvc)
 	managerHandler := handlers.NewManagerHandler(roomSvc, bookingSvc, userSvc, serviceReqSvc, managerSvc)
 	employeeHandler := handlers.NewEmployeeHandler(employeeSvc)
-	dashboardHandler := handlers.NewDashboardHandler(roomSvc, bookingSvc, feedbackSvc, serviceReqSvc, bookingHandler, serviceReqHandler, managerHandler,employeeSvc,employeeHandler)
+	feedbackHandler := handlers.NewFeedbackHandler(feedbackSvc)
+	dashboardHandler := handlers.NewDashboardHandler(roomSvc, bookingSvc, feedbackSvc, serviceReqSvc, bookingHandler, serviceReqHandler, managerHandler, employeeSvc, employeeHandler,feedbackHandler)
 
-	CLIUserHandler := handlers.NewUserHandler(userSvc, dashboardHandler,feedbackSvc)
+	CLIUserHandler := handlers.NewUserHandler(userSvc, dashboardHandler, feedbackSvc)
 	return CLIUserHandler
 }

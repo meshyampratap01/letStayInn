@@ -10,28 +10,24 @@ import (
 	"github.com/meshyampratap01/letStayInn/internal/repository/feedbackRepository"
 	"github.com/meshyampratap01/letStayInn/internal/repository/roomRepository"
 	"github.com/meshyampratap01/letStayInn/internal/repository/serviceRequestRepository"
-	"github.com/meshyampratap01/letStayInn/internal/repository/taskRepository"
 	"github.com/meshyampratap01/letStayInn/internal/repository/userRepository"
-	"github.com/meshyampratap01/letStayInn/internal/utils"
 )
 
 type ManagerService struct {
-	userRepo userRepository.UserRepository
-	taskRepo taskRepository.TaskRepository
-	serviceRequestRepo 	serviceRequestRepository.ServiceRequestRepository
-	roomRepo		roomRepository.IRoomRepository
-	bookingRepo		bookingRepository.BookingRepository
-	feedbackRepo	feedbackRepository.FeedbackRepository
+	userRepo           userRepository.UserRepository
+	serviceRequestRepo serviceRequestRepository.ServiceRequestRepository
+	roomRepo           roomRepository.IRoomRepository
+	bookingRepo        bookingRepository.BookingRepository
+	feedbackRepo       feedbackRepository.FeedbackRepository
 }
 
-func NewManagerService(userRepo userRepository.UserRepository,taskRepo taskRepository.TaskRepository,serviceRequestRepo serviceRequestRepository.ServiceRequestRepository,roomRepo roomRepository.IRoomRepository,bookingRepo bookingRepository.BookingRepository,feedbackRepo feedbackRepository.FeedbackRepository) IManagerService {
+func NewManagerService(userRepo userRepository.UserRepository, serviceRequestRepo serviceRequestRepository.ServiceRequestRepository, roomRepo roomRepository.IRoomRepository, bookingRepo bookingRepository.BookingRepository, feedbackRepo feedbackRepository.FeedbackRepository) IManagerService {
 	return &ManagerService{
-		userRepo: userRepo,
-		taskRepo: taskRepo,
+		userRepo:           userRepo,
 		serviceRequestRepo: serviceRequestRepo,
-		roomRepo: roomRepo,
-		bookingRepo: bookingRepo,
-		feedbackRepo: feedbackRepo,
+		roomRepo:           roomRepo,
+		bookingRepo:        bookingRepo,
+		feedbackRepo:       feedbackRepo,
 	}
 }
 
@@ -102,10 +98,10 @@ func (ms *ManagerService) DeleteEmployeeByEmail(email string) error {
 	for _, user := range users {
 		if user.Email == email {
 			if user.Role != models.RoleKitchenStaff && user.Role != models.RoleCleaningStaff {
-				return errors.New("cannot delete non-employee user")
+				return errors.New("user with this email is not an employee")
 			}
 			found = true
-			continue 
+			continue
 		}
 		updatedUsers = append(updatedUsers, user)
 	}
@@ -143,70 +139,42 @@ func (ms *ManagerService) GetAvailableStaffByTaskType(taskType string) ([]models
 	return availableStaff, nil
 }
 
-func (s *ManagerService) AssignTaskFromServiceRequest(
-	requestID, bookingID, details, staffID string,
-) error {
-
-	requests, err := s.serviceRequestRepo.LoadServiceRequests()
+func (s *ManagerService) AssignServiceRequest(reqID string, empID string) error {
+	req, err := s.serviceRequestRepo.GetServiceRequestByReqID(reqID)
 	if err != nil {
-		return fmt.Errorf("failed to load service requests: %w", err)
+		return err
 	}
-
-	var targetRequest *models.ServiceRequest
-	for i := range requests {
-		if requests[i].ID == requestID {
-			targetRequest = &requests[i]
-			break
-		}
-	}
-	if targetRequest == nil {
-		return fmt.Errorf("service request with ID %s not found", requestID)
-	}
-	if targetRequest.IsAssigned {
-		return fmt.Errorf("service request already assigned")
-	}
-
-	task := models.Task{
-		ID:         utils.NewUUID(),
-		RequestID:	requestID,
-		BookingID:  bookingID,
-		AssignedTo: staffID,
-		Type:       models.TaskType(targetRequest.Type),
-		Details:    details,
-		Status:     models.TaskStatusPending,
-		CreatedAt:  time.Now(),
-	}
-
-	tasks, err := s.taskRepo.GetAllTask()
-	if err != nil {
-		return fmt.Errorf("failed to load tasks: %w", err)
-	}
-	tasks = append(tasks, task)
-
-	if err := s.taskRepo.SaveAllTasks(tasks); err != nil {
-		return fmt.Errorf("failed to save task: %w", err)
-	}
-
-	targetRequest.IsAssigned = true
-	if err := s.serviceRequestRepo.SaveServiceRequests(requests); err != nil {
-		return fmt.Errorf("failed to update service requests: %w", err)
-	}
-
-	return nil
+	req.AssignedTo = empID
+	req.IsAssigned = true
+	req.UpdatedAt = time.Now()
+	return s.serviceRequestRepo.UpdateServiceRequest(req)
 }
 
-
-
 func (s *ManagerService) PrintHotelReport() error {
+	rooms, err := s.roomRepo.GetAllRooms()
+	if err != nil {
+		return fmt.Errorf("error fetching rooms: %v", err)
+	}
 
-	rooms, _ := s.roomRepo.GetAllRooms()
-	availableRooms, _ := s.roomRepo.GetAvailableRooms()
-	guests, _ := s.userRepo.GetAllUsers()
-	employee, _ := s.GetAllEmployees()
-	bookings, _ := s.bookingRepo.GetAllBookings()
-	serviceRequests, _ := s.serviceRequestRepo.LoadServiceRequests()
-	tasks, _ := s.taskRepo.GetAllTask()
+	availableRooms, err := s.roomRepo.GetAvailableRooms()
+	if err != nil {
+		return fmt.Errorf("error fetching available rooms: %v", err)
+	}
 
+	employees, err := s.GetAllEmployees()
+	if err != nil {
+		return fmt.Errorf("error fetching employees: %v", err)
+	}
+
+	bookings, err := s.bookingRepo.GetAllBookings()
+	if err != nil {
+		return fmt.Errorf("error fetching bookings: %v", err)
+	}
+
+	serviceRequests, err := s.serviceRequestRepo.LoadServiceRequests()
+	if err != nil {
+		return fmt.Errorf("error fetching service requests: %v", err)
+	}
 
 	unassignedRequests := 0
 	for _, req := range serviceRequests {
@@ -216,41 +184,31 @@ func (s *ManagerService) PrintHotelReport() error {
 	}
 
 
-	taskSummary := make(map[models.TaskType]map[models.TaskStatus]int)
-	for _, task := range tasks {
-		if _, exists := taskSummary[task.Type]; !exists {
-			taskSummary[task.Type] = make(map[models.TaskStatus]int)
-		}
-		taskSummary[task.Type][task.Status]++
+	requestStatusSummary := make(map[models.ServiceStatus]int)
+	for _, req := range serviceRequests {
+		requestStatusSummary[req.Status]++
 	}
-
 
 	fmt.Println("\n--- Hotel Report ---")
 	fmt.Printf("Total Rooms: %d\n", len(rooms))
 	fmt.Printf("Available Rooms: %d\n", len(availableRooms))
-	fmt.Printf("Total Guests: %d\n", len(guests))
-	fmt.Printf("Total Staff: %d\n", len(employee))
+	fmt.Printf("Total Staff: %d\n", len(employees))
 	fmt.Printf("Total Bookings: %d\n", len(bookings))
 	fmt.Printf("Unassigned Service Requests: %d\n", unassignedRequests)
 
-	fmt.Println("\n--- Task Summary ---")
-	var hasTaskType bool
-	for taskType, statuses := range taskSummary {
-		hasTaskType=true
-		fmt.Printf("%s:\n", taskType)
-		for status, count := range statuses {
-			fmt.Printf("  %s: %d\n", status, count)
+	fmt.Println("\n--- Service Request Summary ---")
+	if len(requestStatusSummary) == 0 {
+		fmt.Println("No Service Requests to show.")
+	} else {
+		for status, count := range requestStatusSummary {
+			fmt.Printf("%s: %d\n", status, count)
 		}
 	}
 
-	if !hasTaskType{
-		fmt.Println("\nNo Tasks to show.")
-	}
 	return nil
 }
+
 
 func (ms *ManagerService) ViewAllFeedback() ([]models.Feedback, error) {
 	return ms.feedbackRepo.GetAllFeedback()
 }
-
-

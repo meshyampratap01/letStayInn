@@ -7,5 +7,9 @@ type ServiceRequestRepository interface {
 	SaveServiceRequests([]models.ServiceRequest) error
 	GetUnassignedRequests() ([]models.ServiceRequest, error)
 	GetServiceRequestByRoomNum(roomNum int) (*models.ServiceRequest, error)
+	GetServiceRequestByReqID(id string) (*models.ServiceRequest, error)
 	UpdateServiceRequest(req *models.ServiceRequest) error
+	GetAssignedServiceRequests(employeeID string) ([]models.ServiceRequest, error)
+	UpdateIsAssigned(reqID string, isAssigned bool) error
 }
+

@@ -7,7 +7,8 @@ import (
 type IUserService interface {
 	Signup(name, email, password string, roleint int) (string, error)
 	Login(email, password string) (*models.User, error)
-	GetTotalGuests() (int, error)
+	GetUserByEmail(email string) (*models.User, error)
+	GetUserNameByID(userID string) (string, error)
 	CreateUser(name, email, password string, role models.Role) models.User
-	ReadPasswordMasked() (string, error)
+	CreateEmployee(name, email, password string, role models.Role, available bool) (models.User, error) 
 }

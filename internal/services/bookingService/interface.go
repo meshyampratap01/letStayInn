@@ -10,8 +10,9 @@ type IBookingService interface {
 	BookRoom(ctx context.Context, roomNum int, checkInStr, checkOutStr string) error
 	CancelBooking(ctx context.Context, bookingID string) error
 	GetUserActiveBookings(ctx context.Context) ([]models.Booking, error)
-	GetAllBookingsWithGuests() ([]models.BookingInfo, error)
+	GetActiveBookings() ([]models.Booking, error)
 	GetBookingIDByRoomNumber(roomNumber int) (string, error)
+	IsRoomBooked(roomNumber int) (bool, error)
 }
 
 

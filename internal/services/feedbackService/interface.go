@@ -4,5 +4,5 @@ import "context"
 
 
 type IFeedbackService interface {
-	SubmitFeedback(ctx context.Context) error
+	SubmitFeedback(ctx context.Context, message string, rating int) error
 }

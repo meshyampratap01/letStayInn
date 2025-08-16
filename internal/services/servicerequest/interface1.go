@@ -9,7 +9,8 @@ import (
 type IServiceRequestService interface {
 	ServiceRequestGetter(context.Context,int,models.ServiceType,string) error
 	GetPendingRequestCount() (int, error)
-	ViewAllServiceRequests() ([]models.ServiceRequest, error)
-	ViewUnassignedServiceRequest() ([]models.ServiceRequest,error)
-	CancelServiceRequestByRoomNum(roomNum int) error
+	GetUnassignedServiceRequest() ([]models.ServiceRequest,error)
+	UpdateServiceRequestStatus(reqID string, status models.ServiceStatus) error
+	CancelServiceRequestByID(reqID string) error
+	UpdateServiceRequestAssignment(reqID string, isAssigned bool) error
 }

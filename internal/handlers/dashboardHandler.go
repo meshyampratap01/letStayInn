@@ -33,6 +33,7 @@ type DashboardHandler struct {
 	managerHandler        *ManagerHandler
 	employeeService       employeeService.IEmployeeService
 	employeeHandler       *EmployeeHandler
+	feedbackHandler		  *FeedbackHandler
 }
 
 func NewDashboardHandler(
@@ -45,6 +46,7 @@ func NewDashboardHandler(
 	managerHandler *ManagerHandler,
 	employeeService employeeService.IEmployeeService,
 	employeeHandler *EmployeeHandler,
+	feedbackHandler *FeedbackHandler,
 ) *DashboardHandler {
 	return &DashboardHandler{
 		RoomService:           roomSvc,
@@ -56,6 +58,7 @@ func NewDashboardHandler(
 		managerHandler:        managerHandler,
 		employeeService:       employeeService,
 		employeeHandler:       employeeHandler,
+		feedbackHandler:       feedbackHandler,
 	}
 }
 
@@ -66,7 +69,7 @@ func (h *DashboardHandler) LoadDashboard(ctx context.Context) {
 	case models.RoleKitchenStaff, models.RoleCleaningStaff:
 		h.EmployeeDashboard(ctx)
 	case models.RoleManager:
-		h.managerDashboard(ctx)
+		h.managerDashboard()
 	default:
 		fmt.Println(errStyle("Unknown role."))
 	}
@@ -102,7 +105,7 @@ func (h *DashboardHandler) guestDashboard(ctx context.Context) {
 		case 6:
 			h.ServiceRequestHandler.ServiceRequestHandler(ctx, models.ServiceTypeCleaning)
 		case 7:
-			if err := h.FeedbackService.SubmitFeedback(ctx); err != nil {
+			if err := (ctx); err != nil {
 				fmt.Println(errStyle("Error submitting feedback:"), err)
 			}
 		case 8:
@@ -114,14 +117,14 @@ func (h *DashboardHandler) guestDashboard(ctx context.Context) {
 	}
 }
 
-func (h *DashboardHandler) managerDashboard(ctx context.Context) {
+func (h *DashboardHandler) managerDashboard() {
 	for {
 		fmt.Println(titleStyle(config.ManagerDashboardTitle))
 		fmt.Println(optionStyle("\n1.") + " View Dashboard Summary")
-		fmt.Println(optionStyle("2.") + " Room Management")
-		fmt.Println(optionStyle("3.") + " View Bookings and Guests")
-		fmt.Println(optionStyle("4.") + " Manage Staff")
-		fmt.Println(optionStyle("5.") + " Manage Service Requests")
+		fmt.Println(optionStyle("2.") + " View Bookings and Guests")
+		fmt.Println(optionStyle("3.") + " Room Management")
+		fmt.Println(optionStyle("4.") + " Employee Management")
+		fmt.Println(optionStyle("5.") + " Service Requests Management")
 		fmt.Println(optionStyle("6.") + " Generate Reports")
 		fmt.Println(optionStyle("7.") + " View Guest Feedback")
 		fmt.Println(optionStyle("8.") + " Logout")
@@ -135,10 +138,10 @@ func (h *DashboardHandler) managerDashboard(ctx context.Context) {
 			h.managerHandler.ManagerDashboardSummary()
 
 		case 2:
-			h.managerHandler.roomManagementMenu()
+			h.managerHandler.ListBookingsAndGuests()
 
 		case 3:
-			h.managerHandler.ListBookingsAndGuests()
+			h.managerHandler.roomManagementMenu()
 
 		case 4:
 			h.managerHandler.employeeManagementMenu()
@@ -150,7 +153,7 @@ func (h *DashboardHandler) managerDashboard(ctx context.Context) {
 			h.managerHandler.GenerateReport()
 
 		case 7:
-			h.managerHandler.ViewFeedback(ctx)
+			h.managerHandler.ViewFeedback()
 
 		case 8:
 			fmt.Println(successStyle("Logging out..."))
@@ -171,24 +174,33 @@ func (h *DashboardHandler) EmployeeDashboard(ctx context.Context) {
 
 	for {
 		fmt.Println(titleStyle(config.EmployeeDashboardTitle))
-		fmt.Println(optionStyle("\n1.") + " View Assigned Tasks")
-		fmt.Println(optionStyle("2.") + " Update Task Status")
+		fmt.Println(optionStyle("\n1.") + " View Assigned Service Requests")
+		fmt.Println(optionStyle("2.") + " Update Service Request Status")
 		fmt.Println(optionStyle("3.") + " Toggle Availability")
-		fmt.Println(optionStyle("4.") + " Exit Dashboard")
+		fmt.Println(optionStyle("4.") + " Logout")
 		fmt.Print(promptStyle(config.SelectOption))
 
 		var choice int
-		fmt.Scanln(&choice)
+		if _, err := fmt.Scanln(&choice); err != nil {
+			fmt.Println(errStyle("Invalid input. Please enter a number."))
+			continue
+		}
 
 		switch choice {
 		case 1:
-			h.employeeHandler.ViewAssignedTasks(userID)
+			if err := h.employeeHandler.ViewAssignedServiceRequests(userID); err != nil {
+				fmt.Println(errStyle(fmt.Sprintf("Error viewing assigned requests: %v", err)))
+			}
 		case 2:
-			h.employeeHandler.UpdateTaskStatus(userID)
+			if err := h.employeeHandler.UpdateServiceRequestStatus(userID); err != nil {
+				fmt.Println(errStyle(fmt.Sprintf("Error updating request status: %v", err)))
+			}
 		case 3:
-			h.employeeHandler.ToggleAvailability(userID)
+			if err := h.employeeHandler.ToggleAvailability(userID); err != nil {
+				fmt.Println(errStyle(fmt.Sprintf("Error toggling availability: %v", err)))
+			}
 		case 4:
-			fmt.Println(successStyle("Exiting Employee Dashboard..."))
+			fmt.Println(successStyle("Logging out..."))
 			return
 		default:
 			fmt.Println(errStyle(config.InvalidOption))

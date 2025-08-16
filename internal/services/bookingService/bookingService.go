@@ -133,6 +133,11 @@ func (s *BookingService) CancelBooking(ctx context.Context, bookingID string) er
 	return s.bookingRepo.SaveBookings(bookings)
 }
 
+func (s *BookingService) GetActiveBookings() ([]models.Booking, error) {
+	return s.bookingRepo.GetActiveBookings()
+}
+
+
 func (s *BookingService) GetUserActiveBookings(ctx context.Context) ([]models.Booking, error) {
 	userID, ok := ctx.Value(contextkeys.UserIDKey).(string)
 	if !ok {
@@ -153,38 +158,6 @@ func (s *BookingService) GetUserActiveBookings(ctx context.Context) ([]models.Bo
 }
 
 
-func (s *BookingService) GetAllBookingsWithGuests() ([]models.BookingInfo, error) {
-	bookings, err := s.bookingRepo.GetAllBookings()
-	if err != nil {
-		return nil, err
-	}
-
-	users, err := s.userRepo.GetAllUsers()
-	if err != nil {
-		return nil, err
-	}
-
-	userMap := make(map[string]string)
-	for _, user := range users {
-		userMap[user.ID] = user.Name
-	}
-
-	var result []models.BookingInfo
-	for _, b := range bookings {
-		guestName := userMap[b.UserID]
-		result = append(result, models.BookingInfo{
-			ID:         b.ID,
-			GuestName:  guestName,
-			RoomNumber: b.RoomNum,
-			CheckIn:    b.CheckIn,
-			CheckOut:   b.CheckOut,
-		})
-	}
-
-	return result, nil
-}
-
-
 func (s *BookingService) GetBookingIDByRoomNumber(roomNumber int) (string, error) {
 	bookings, err := s.bookingRepo.GetAllBookings()
 	if err != nil {
@@ -197,4 +170,9 @@ func (s *BookingService) GetBookingIDByRoomNumber(roomNumber int) (string, error
 		}
 	}
 	return "", nil
+}
+
+
+func (bs *BookingService) IsRoomBooked(roomNumber int) (bool, error) {
+	return bs.bookingRepo.CheckRoomBooked(roomNumber)
 }

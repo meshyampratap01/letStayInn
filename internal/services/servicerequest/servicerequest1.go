@@ -49,9 +49,19 @@ func (s *ServiceRequestService) ServiceRequestGetter(ctx context.Context, roomNu
 	if err != nil {
 		return fmt.Errorf("failed to load service requests: %w", err)
 	}
+
+	var latestRequest *models.ServiceRequest
 	for _, r := range requests {
 		if r.UserID == ctx.Value(contextkeys.UserIDKey) && r.RoomNum == roomNum && r.Type == reqType {
-			return fmt.Errorf("you have already requested %s for this room", reqType)
+			if latestRequest == nil || r.CreatedAt.After(latestRequest.CreatedAt) {
+				latestRequest = &r
+			}
+		}
+	}
+
+	if latestRequest != nil {
+		if latestRequest.Status != models.ServiceStatusDone && latestRequest.Status != models.ServiceStatusCancelled {
+			return fmt.Errorf("your previous %s request for this room is still in progress", reqType)
 		}
 	}
 
@@ -62,7 +72,7 @@ func (s *ServiceRequestService) ServiceRequestGetter(ctx context.Context, roomNu
 		BookingID: bid,
 		Type:      reqType,
 		Status:    models.ServiceStatusPending,
-		CreatedAt: time.Now().Format(time.RFC3339),
+		CreatedAt: time.Now(),
 		Details:   details,
 	}
 
@@ -91,26 +101,35 @@ func (srs *ServiceRequestService) GetPendingRequestCount() (int, error) {
 	return count, nil
 }
 
-func (ms *ServiceRequestService) ViewAllServiceRequests() ([]models.ServiceRequest, error) {
-	return ms.serviceRequestRepo.LoadServiceRequests()
-}
-
-func (s *ServiceRequestService) ViewUnassignedServiceRequest() ([]models.ServiceRequest, error) {
+func (s *ServiceRequestService) GetUnassignedServiceRequest() ([]models.ServiceRequest, error) {
 	return s.serviceRequestRepo.GetUnassignedRequests()
 }
 
-func (s *ServiceRequestService) CancelServiceRequestByRoomNum(roomNum int) error {
-	req, err := s.serviceRequestRepo.GetServiceRequestByRoomNum(roomNum)
+func (s *ServiceRequestService) CancelServiceRequestByID(reqID string) error {
+	req, err := s.serviceRequestRepo.GetServiceRequestByReqID(reqID)
 	if err != nil {
-		return fmt.Errorf("service request not found for room %d: %w", roomNum, err)
+		return fmt.Errorf("service request not found: %w", err)
 	}
 
-	if req.Status == models.ServiceStatusDone {
-		return fmt.Errorf("cannot cancel a completed service request")
-	}
-
-	// Optional: Add a "Cancelled" status in your model constants
-	req.Status = models.ServiceStatus("Cancelled")
+	req.Status = models.ServiceStatusCancelled
+	req.UpdatedAt = time.Now()
 
 	return s.serviceRequestRepo.UpdateServiceRequest(req)
+}
+
+func (s *ServiceRequestService) UpdateServiceRequestStatus(reqID string, status models.ServiceStatus) error {
+	req, err := s.serviceRequestRepo.GetServiceRequestByReqID(reqID)
+	if err != nil {
+		return fmt.Errorf("service request not found: %v", err)
+	}
+
+	req.Status = status
+	req.UpdatedAt = time.Now()
+
+	return s.serviceRequestRepo.UpdateServiceRequest(req)
+}
+
+
+func (s *ServiceRequestService) UpdateServiceRequestAssignment(reqID string, isAssigned bool) error {
+	return s.serviceRequestRepo.UpdateIsAssigned(reqID, isAssigned)
 }

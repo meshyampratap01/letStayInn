@@ -9,13 +9,14 @@ import (
 
 func AddBackButton() {
 	reader := bufio.NewReader(os.Stdin)
-	fmt.Print("\nEnter 'b' to go back: ")
+	fmt.Print("\nPress Enter to go back...")
 	for {
 		input, _ := reader.ReadString('\n')
-		input = strings.TrimSpace(strings.ToLower(input))
-		if input == "b" {
+		input = strings.TrimSpace(input)
+		if input == "" { 
 			break
 		}
-		fmt.Print("Invalid input. Please enter 'b' to go back: ")
+		fmt.Print("Invalid input. Just press Enter to go back: ")
 	}
 }
+

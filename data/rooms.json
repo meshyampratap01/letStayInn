@@ -1,27 +1,11 @@
 [
   {
-    "id": "r1",
-    "number": 101,
-    "type": "Single",
-    "price": 1000,
-    "is_available": false,
-    "description": "Cozy single room"
-  },
-  {
     "id": "r2",
     "number": 102,
     "type": "Double",
     "price": 1800,
     "is_available": false,
     "description": "Spacious double room"
-  },
-  {
-    "id": "r3",
-    "number": 201,
-    "type": "Suite",
-    "price": 3000,
-    "is_available": true,
-    "description": "Luxury suite"
   },
   {
     "id": "r4",

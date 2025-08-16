@@ -2,10 +2,8 @@ package handlers
 
 import (
 	"bufio"
-	"context"
 	"fmt"
 	"os"
-	"strconv"
 	"strings"
 
 	"github.com/fatih/color"
@@ -37,23 +35,44 @@ func NewManagerHandler(rs roomService.IRoomService, bs bookingService.IBookingSe
 }
 
 func (mh ManagerHandler) ManagerDashboardSummary() {
-	totalRooms, _ := mh.roomService.GetTotalRooms()
-	availableRooms, _ := mh.roomService.GetTotalAvailableRooms()
-	bookedRooms := totalRooms - availableRooms
+	totalRooms, err := mh.roomService.GetTotalRooms()
+	if err != nil {
+		color.Red("Error fetching total rooms: %v", err)
+		return
+	}
 
-	totalGuests, _ := mh.userService.GetTotalGuests()
-	totalEmp, _ := mh.managerService.GetTotalEmployees()
+	availableRooms, err := mh.roomService.GetTotalAvailableRooms()
+	if err != nil {
+		color.Red("Error fetching available rooms: %v", err)
+		return
+	}
 
-	pendingRequests, _ := mh.serviceRequestService.GetPendingRequestCount()
+	bookedRooms, err := mh.bookingService.GetActiveBookings()
+	if err != nil {
+		color.Red("Error fetching booked rooms: %v", err)
+		return
+	}
+
+	totalEmp, err := mh.managerService.GetTotalEmployees()
+	if err != nil {
+		color.Red("Error fetching total employees: %v", err)
+		return
+	}
+
+	pendingRequests, err := mh.serviceRequestService.GetPendingRequestCount()
+	if err != nil {
+		color.Red("Error fetching pending service requests: %v", err)
+		return
+	}
 
 	color.Cyan("\n--- Dashboard Summary ---")
 	fmt.Printf("Total Rooms: %d\n", totalRooms)
-	fmt.Printf("Booked Rooms: %d\n", bookedRooms)
+	fmt.Printf("Booked Rooms: %d\n", len(bookedRooms))
 	fmt.Printf("Available Rooms: %d\n", availableRooms)
-	fmt.Printf("Total Guests(including those who checked out): %d\n", totalGuests)
-	fmt.Printf("Total Employee: %d\n", totalEmp)
+	fmt.Printf("Total Employees: %d\n", totalEmp)
 	fmt.Printf("Pending Service Requests: %d\n", pendingRequests)
 }
+
 
 func (h *ManagerHandler) ListRooms() {
 	rooms, err := h.roomService.GetAllRooms()
@@ -68,37 +87,48 @@ func (h *ManagerHandler) ListRooms() {
 	}
 
 	color.Cyan("\n--- Room List ---")
+
+	fmt.Printf("%-10s %-15s %-12s %-12s %-30s\n",
+		"Number", "Type", "Price (Rs)", "Available", "Description")
+	fmt.Println(strings.Repeat("-", 80))
+
 	for _, room := range rooms {
 		availability := color.RedString("No")
 		if room.IsAvailable {
 			availability = color.GreenString("Yes")
 		}
-		fmt.Printf("Number: %d | Type: %s | Price: %.2f | Available: %s | Description: %s\n",
-			room.Number, room.Type, room.Price, availability, room.Description)
+
+		fmt.Printf("%-10d %-15s %-12.2f %-20s %-30s\n",
+			room.Number,
+			room.Type,
+			room.Price,
+			availability,
+			room.Description)
 	}
 }
+
 
 func (h *ManagerHandler) AddRoom() {
 	reader := bufio.NewReader(os.Stdin)
 
-	color.Yellow("Enter room number: ")
+	fmt.Print(color.YellowString("Enter room number: "))
 	var number int
 	fmt.Scanln(&number)
 
-	color.Yellow("Enter room type (e.g., Deluxe, Standard): ")
+	fmt.Print(color.YellowString("Enter room type (e.g., Deluxe, Standard): "))
 	roomType, _ := reader.ReadString('\n')
 	roomType = strings.TrimSpace(roomType)
 
-	color.Yellow("Enter room price: ")
+	fmt.Print(color.YellowString("Enter room price: "))
 	var price float64
 	fmt.Scanln(&price)
 
-	color.Yellow("Is the room available? (yes/no): ")
+	fmt.Print(color.YellowString("Is the room available? (yes/no): "))
 	availableInput, _ := reader.ReadString('\n')
 	availableInput = strings.TrimSpace(strings.ToLower(availableInput))
 	isAvailable := availableInput == "yes"
 
-	color.Yellow("Enter room description: ")
+	fmt.Print(color.YellowString("Enter room description: "))
 	description, _ := reader.ReadString('\n')
 	description = strings.TrimSpace(description)
 
@@ -120,12 +150,22 @@ func (h *ManagerHandler) UpdateRoom() {
 	var number int
 	fmt.Scanln(&number)
 
-	fmt.Print(color.CyanString("\nSelect what you want to update:"))
+	booked, err := h.bookingService.IsRoomBooked(number)
+	if err != nil {
+		color.Red("Error checking booking status: %v", err)
+		return
+	}
+	if booked {
+		color.Red("Cannot update room %d — it is currently booked.", number)
+		return
+	}
+
+	fmt.Print(color.CyanString("\nSelect what you want to update:\n"))
 	fmt.Println("1. Room Type")
 	fmt.Println("2. Price")
 	fmt.Println("3. Availability")
 	fmt.Println("4. Description")
-	color.Yellow("Enter choice: ")
+	fmt.Print(color.YellowString("Enter choice: "))
 	var choice int
 	fmt.Scanln(&choice)
 
@@ -154,7 +194,7 @@ func (h *ManagerHandler) UpdateRoom() {
 		return
 	}
 
-	err := h.roomService.UpdateRoom(number, choice, roomType, price, isAvailable, description)
+	err = h.roomService.UpdateRoom(number, choice, roomType, price, isAvailable, description)
 	if err != nil {
 		color.Red("Error updating room: %v", err)
 		return
@@ -165,11 +205,22 @@ func (h *ManagerHandler) UpdateRoom() {
 
 func (h *ManagerHandler) DeleteRoom() {
 	h.ListRooms()
+
 	fmt.Print(color.YellowString("\nEnter Room Number to delete: "))
 	var number int
 	fmt.Scanln(&number)
 
-	err := h.roomService.DeleteRoom(number)
+	booked, err := h.bookingService.IsRoomBooked(number)
+	if err != nil {
+		color.Red("Error checking booking status: %v", err)
+		return
+	}
+	if booked {
+		color.Red("Cannot delete room %d — it is currently booked.", number)
+		return
+	}
+
+	err = h.roomService.DeleteRoom(number)
 	if err != nil {
 		color.Red("Error deleting room: %v", err)
 		return
@@ -179,7 +230,7 @@ func (h *ManagerHandler) DeleteRoom() {
 }
 
 func (h *ManagerHandler) ListBookingsAndGuests() {
-	bookings, err := h.bookingService.GetAllBookingsWithGuests()
+	bookings, err := h.bookingService.GetActiveBookings()
 	if err != nil {
 		color.Red("Error fetching bookings: %v", err)
 		return
@@ -191,16 +242,31 @@ func (h *ManagerHandler) ListBookingsAndGuests() {
 		return
 	}
 
+	fmt.Printf("%-15s %-20s %-12s %-12s %-12s\n",
+		"Room Number", "Guest Name", "Check-In", "Check-Out", "Status")
+	fmt.Println(strings.Repeat("-", 85))
+
 	for _, b := range bookings {
-		fmt.Println("---------------")
-		fmt.Printf("Booking ID   : %s\n", b.ID)
-		fmt.Printf("Guest Name   : %s\n", b.GuestName)
-		fmt.Printf("Room Number  : %d\n", b.RoomNumber)
-		fmt.Printf("Check-In     : %s\n", b.CheckIn.Format("2006-01-02"))
-		fmt.Printf("Check-Out    : %s\n", b.CheckOut.Format("2006-01-02"))
-		fmt.Println("---------------")
+		guest, err := h.userService.GetUserNameByID(b.UserID)
+		if err != nil {
+			guest = "Unknown"
+		}
+
+		status := color.GreenString(b.Status)
+		if strings.ToLower(b.Status) != "confirmed" {
+			status = color.YellowString(b.Status)
+		}
+
+		fmt.Printf("%-15d %-20s %-12s %-12s %-12s \n",
+			b.RoomNum,
+			guest,
+			b.CheckIn.Format("2006-01-02"),
+			b.CheckOut.Format("2006-01-02"),
+			status,
+		)
 	}
 }
+
 
 func (mh *ManagerHandler) UpdateEmployeeAvailability() {
 	reader := bufio.NewReader(os.Stdin)
@@ -257,138 +323,6 @@ func (mh *ManagerHandler) DeleteEmployee() {
 	color.Green("Employee deleted successfully.")
 }
 
-func (h *ManagerHandler) AssignTasksToEmployees() {
-	reader := bufio.NewReader(os.Stdin)
-
-	requests, err := h.serviceRequestService.ViewUnassignedServiceRequest()
-	if err != nil {
-		color.Red("Error fetching service requests: %v", err)
-		return
-	}
-
-	if len(requests) == 0 {
-		color.Yellow("No unassigned service requests found.")
-		return
-	}
-
-	color.Cyan("\n--- Unassigned Service Requests ---")
-	for i, r := range requests {
-		fmt.Printf("%d. Type: %s | Room: %d | Created At: %s\n", i+1, r.Type, r.RoomNum, r.CreatedAt)
-	}
-
-	fmt.Print(color.YellowString("Enter request numbers to assign (comma-separated): "))
-	reqInput, _ := reader.ReadString('\n')
-	reqInput = strings.TrimSpace(reqInput)
-	reqParts := strings.Split(reqInput, ",")
-
-	var selectedRequests []models.ServiceRequest
-	for _, part := range reqParts {
-		index, err := strconv.Atoi(strings.TrimSpace(part))
-		if err != nil || index < 1 || index > len(requests) {
-			color.Red("Skipping invalid selection: %s", part)
-			continue
-		}
-		selectedRequests = append(selectedRequests, requests[index-1])
-	}
-
-	if len(selectedRequests) == 0 {
-		color.Yellow("No valid service requests selected.")
-		return
-	}
-
-	for _, sr := range selectedRequests {
-		color.Cyan("\n--- Assigning Request: %s (Room %d) ---", sr.Type, sr.RoomNum)
-
-		bookingID, err := h.bookingService.GetBookingIDByRoomNumber(sr.RoomNum)
-		if err != nil || bookingID == "" {
-			color.Red("No booking found for room %d. Skipping...", sr.RoomNum)
-			continue
-		}
-
-		staffList, err := h.managerService.GetAvailableStaffByTaskType(string(sr.Type))
-		if err != nil || len(staffList) == 0 {
-			color.Red("No available staff for this task. Skipping...")
-			continue
-		}
-
-		color.Cyan("Available Staff:")
-		if len(staffList) == 0 {
-			fmt.Printf(color.RedString("No Employee Available for %s task."), sr.Type)
-		}
-		for i, s := range staffList {
-			fmt.Printf("%d. %s (%s)\n", i+1, s.Name, s.Email)
-		}
-
-		fmt.Print(color.YellowString("Select staff by number: "))
-		var staffChoice int
-		fmt.Scanln(&staffChoice)
-		if staffChoice < 1 || staffChoice > len(staffList) {
-			color.Red("Invalid selection. Skipping...")
-			continue
-		}
-		selectedStaff := staffList[staffChoice-1]
-
-		fmt.Print(color.YellowString("Enter task details: "))
-		details, _ := reader.ReadString('\n')
-		details = strings.TrimSpace(details)
-
-		err = h.managerService.AssignTaskFromServiceRequest(sr.ID, bookingID, details, selectedStaff.ID)
-		if err != nil {
-			color.Red("Failed to assign task: %v", err)
-		} else {
-			color.Green("Task assigned successfully.")
-		}
-	}
-}
-
-func (mh *ManagerHandler) ViewUnassignedServiceRequests() {
-	color.Cyan("\n--- Unassigned Service Requests ---")
-
-	requests, err := mh.serviceRequestService.ViewUnassignedServiceRequest()
-	if err != nil {
-		color.Red("Error fetching service requests: %v", err)
-		return
-	}
-
-	if len(requests) == 0 {
-		color.Yellow("No unassigned service requests found.")
-		return
-	}
-
-	for _, req := range requests {
-		fmt.Println("Request ID:", req.ID)
-		fmt.Println("Guest ID:", req.UserID)
-		fmt.Println("Room Number:", req.RoomNum)
-		fmt.Println("Request Type:", req.Type)
-		fmt.Println("Created At:", req.CreatedAt)
-		fmt.Println("-----------------------------------")
-	}
-}
-
-func (mh *ManagerHandler) ViewAllServiceRequests() {
-	color.Cyan("\n--- All Guest Service Requests ---")
-
-	requests, err := mh.serviceRequestService.ViewAllServiceRequests()
-	if err != nil {
-		color.Red("Error: %v", err)
-		return
-	}
-
-	if len(requests) == 0 {
-		color.Yellow("No service requests found.")
-		return
-	}
-
-	for _, req := range requests {
-		fmt.Println("Request ID:", req.ID)
-		fmt.Println("Guest ID:", req.UserID)
-		fmt.Println("Room Number:", req.RoomNum)
-		fmt.Println("Type:", req.Type)
-		fmt.Println("Created At:", req.CreatedAt)
-		fmt.Println("-----------")
-	}
-}
-
 func (h *ManagerHandler) GenerateReport() {
 	color.Cyan("\n--- Generating Hotel Report ---")
 
@@ -398,25 +332,53 @@ func (h *ManagerHandler) GenerateReport() {
 	}
 }
 
-func (mh *ManagerHandler) ViewFeedback(ctx context.Context) {
+func (mh *ManagerHandler) ViewFeedback() {
 	feedbacks, err := mh.managerService.ViewAllFeedback()
 	if err != nil {
-		color.Red("Error fetching feedback: %v", err)
+		color.Red("❌ Error fetching feedback: %v", err)
 		return
 	}
 
 	if len(feedbacks) == 0 {
-		color.Yellow("No feedback available.")
+		color.Yellow("⚠️ No feedback available.")
 		return
 	}
 
-	color.Cyan("\n--- All Feedback ---")
-	if len(feedbacks) == 0 {
-		fmt.Print(color.RedString("No Feedbacks."))
-	}
+	color.Cyan("\n📋 --- All Feedback ---")
 	for _, fb := range feedbacks {
-		fmt.Printf("Feedback ID: %s\nUser ID: %s\nMessage: %s\nDate: %s\n\n",
-			fb.ID, fb.UserID, fb.Message, fb.CreatedAt)
+		rating := "N/A"
+		if fb.Rating > 0 {
+			switch {
+			case fb.Rating >= 4:
+				rating = color.GreenString("%d/5", fb.Rating)
+			case fb.Rating == 3:
+				rating = color.YellowString("%d/5", fb.Rating)
+			default:
+				rating = color.RedString("%d/5", fb.Rating)
+			}
+		}
+
+		room := "N/A"
+		if fb.RoomNum != 0 {
+			room = fmt.Sprintf("%d", fb.RoomNum)
+		}
+
+		booking := "N/A"
+		if fb.BookingID != "" {
+			booking = fb.BookingID
+		}
+
+		fmt.Printf(
+			"\n🆔 Feedback ID : %s\n👤 User Name   : %s\n🔑 User ID     : %s\n💬 Message     : %s\n📅 Date        : %s\n🚪 Room Number : %s\n📖 Booking ID  : %s\n⭐ Rating      : %s\n",
+			fb.ID,
+			fb.UserName,
+			fb.UserID,
+			fb.Message,
+			fb.CreatedAt.Format("2006-01-02 15:04"),
+			room,
+			booking,
+			rating,
+		)
 	}
 }
 
@@ -455,9 +417,10 @@ EmpMgmtLoop:
 	for {
 		fmt.Println(titleStyle(config.EmpMgmtTitle))
 		fmt.Println(optionStyle("\n1.") + " List Employee")
-		fmt.Println(optionStyle("2.") + " Update Employee Availability")
+		fmt.Println(optionStyle("2.") + " Create Employee")
 		fmt.Println(optionStyle("3.") + " Delete Employee")
-		fmt.Println(optionStyle("4.") + " Back")
+		fmt.Println(optionStyle("4.") + " Update Employee Availability")
+		fmt.Println(optionStyle("5.") + " Back")
 		fmt.Print(promptStyle(config.SelectOption))
 
 		var echoice int
@@ -466,10 +429,12 @@ EmpMgmtLoop:
 		case 1:
 			h.ListEmployee()
 		case 2:
-			h.UpdateEmployeeAvailability()
+			h.CreateEmployee()
 		case 3:
 			h.DeleteEmployee()
 		case 4:
+			h.UpdateEmployeeAvailability()
+		case 5:
 			break EmpMgmtLoop
 		default:
 			fmt.Println(errStyle(config.InvalidOption))
@@ -477,26 +442,76 @@ EmpMgmtLoop:
 	}
 }
 
+
+func (h *ManagerHandler) CreateEmployee() {
+	var name, email, password string
+	var roleInt int
+	var available bool
+
+	fmt.Println("\n--- Create Employee ---")
+	fmt.Print("Enter Name: ")
+	fmt.Scanln(&name)
+	fmt.Print("Enter Email: ")
+	fmt.Scanln(&email)
+	fmt.Print("Enter Password: ")
+	fmt.Scanln(&password)
+
+	fmt.Println("Select Role: ")
+	fmt.Println("1. Kitchen Staff")
+	fmt.Println("2. Cleaning Staff")
+	fmt.Println("3. Manager")
+	fmt.Print("Enter choice: ")
+	fmt.Scanln(&roleInt)
+
+	var role models.Role
+	switch roleInt {
+	case 1:
+		role = models.RoleKitchenStaff
+	case 2:
+		role = models.RoleCleaningStaff
+	case 3:
+		role = models.RoleManager
+	default:
+		fmt.Println("Invalid role selection.")
+		return
+	}
+
+	fmt.Print("Is Employee Available? (true/false): ")
+	fmt.Scanln(&available)
+
+	emp, err := h.userService.CreateEmployee(name, email, password, role, available)
+	if err != nil {
+		color.Red("Error creating employee: %v", err)
+		return
+	}
+
+	color.Green("Employee created successfully! ID: %s", emp.ID)
+}
+
+
 func (h *ManagerHandler) serviceRequestManagementMenu() {
 ServiceReqLoop:
 	for {
-		fmt.Println(titleStyle("Manage Service Requests"))
-		fmt.Println(optionStyle("\n1.") + " View All Guest Service Requests")
-		fmt.Println(optionStyle("2.") + " View Unassigned Guest Service Requests")
-		fmt.Println(optionStyle("3.") + " Cancel Service Request")
-		fmt.Println(optionStyle("4.") + " Back")
+		fmt.Println(titleStyle("\n--- Manage Service Requests ---"))
+		fmt.Println(optionStyle("\n1.") + " View Pending / Unassigned Requests")
+		fmt.Println(optionStyle("2.") + " Assign Request to Employee")
+		fmt.Println(optionStyle("3.") + " Update Request Status")
+		fmt.Println(optionStyle("4.") + " Cancel Service Request")
+		fmt.Println(optionStyle("5.") + " Back")
 		fmt.Print(promptStyle(config.SelectOption))
 
 		var sChoice int
 		fmt.Scanln(&sChoice)
 		switch sChoice {
 		case 1:
-			h.ViewAllServiceRequests()
-		case 2:
 			h.ViewUnassignedServiceRequests()
+		case 2:
+			h.AssignServiceRequestToEmployee()
 		case 3:
-			h.CancelServiceRequest()
+			h.UpdateServiceRequestStatus()
 		case 4:
+			h.CancelServiceRequest()
+		case 5:
 			break ServiceReqLoop
 		default:
 			fmt.Println(errStyle(config.InvalidOption))
@@ -504,10 +519,10 @@ ServiceReqLoop:
 	}
 }
 
-func (m *ManagerHandler) CancelServiceRequest() {
-	color.Cyan("\n--- Unassigned Service Requests ---")
+func (mh *ManagerHandler) ViewUnassignedServiceRequests() {
+	color.Cyan("\n--- Pending / Unassigned Service Requests ---")
 
-	requests, err := m.serviceRequestService.ViewUnassignedServiceRequest()
+	requests, err := mh.serviceRequestService.GetUnassignedServiceRequest()
 	if err != nil {
 		color.Red("Error fetching service requests: %v", err)
 		return
@@ -518,19 +533,203 @@ func (m *ManagerHandler) CancelServiceRequest() {
 		return
 	}
 
-	for i, req := range requests {
-		fmt.Printf("%d. Room Number: %d | Request Type: %s | Created At: %s\n",
-			i+1, req.RoomNum, req.Type, req.CreatedAt)
+	fmt.Printf("%-15s %-10s %-12s %-20s %-12s\n", "Guest Name", "Room No", "Type", "Created At", "Is Assigned")
+	fmt.Println(strings.Repeat("-", 75))
+
+	for _, req := range requests {
+		guestName, err := mh.userService.GetUserNameByID(req.UserID)
+		if err != nil {
+			color.Red("Error fetching guest name for UserID %s: %v", req.UserID, err)
+			continue
+		}
+
+		isAssignedStr := color.RedString("No")
+		if req.IsAssigned {
+			isAssignedStr = color.GreenString("Yes")
+		}
+
+		fmt.Printf("%-15s %-10d %-12s %-20s %-12s\n",
+			guestName,
+			req.RoomNum,
+			req.Type,
+			req.CreatedAt.Format("02-01-2006 15:04"),
+			isAssignedStr)
+	}
+}
+
+
+
+func (m *ManagerHandler) CancelServiceRequest() {
+	color.Cyan("\n--- Unassigned Service Requests ---")
+
+	requests, err := m.serviceRequestService.GetUnassignedServiceRequest()
+	if err != nil {
+		color.Red("Error fetching service requests: %v", err)
+		return
 	}
 
-	var roomNum int
-	fmt.Print(promptStyle("Enter Room Number for the service request to cancel: "))
-	fmt.Scanln(&roomNum)
+	if len(requests) == 0 {
+		color.Yellow("No unassigned service requests found.")
+		return
+	}
 
-	err = m.serviceRequestService.CancelServiceRequestByRoomNum(roomNum)
+	fmt.Printf("%-5s %-10s %-15s %-20s\n", "No.", "Room No", "Type", "Created At")
+	fmt.Println(strings.Repeat("-", 60))
+	for i, req := range requests {
+		fmt.Printf("%-5d %-10d %-15s %-20s\n",
+			i+1, req.RoomNum, req.Type, req.CreatedAt.Format("2006-01-02 15:04"))
+	}
+
+	var choice int
+	fmt.Print(promptStyle("Enter the number of the service request to cancel: "))
+	fmt.Scanln(&choice)
+
+	if choice < 1 || choice > len(requests) {
+		fmt.Println(errStyle("Invalid selection"))
+		return
+	}
+
+	selectedReq := requests[choice-1]
+
+	err = m.serviceRequestService.CancelServiceRequestByID(selectedReq.ID)
 	if err != nil {
 		fmt.Println(errStyle("Error canceling service request:"), err)
 		return
 	}
+
 	fmt.Println(successStyle("Service request canceled successfully."))
+}
+
+
+func (h *ManagerHandler) AssignServiceRequestToEmployee() {
+	fmt.Println(titleStyle("Unassigned Service Requests\n"))
+	unassigned, err := h.serviceRequestService.GetUnassignedServiceRequest()
+	if err != nil {
+		fmt.Println(errStyle("Error fetching unassigned requests:", err))
+		return
+	}
+
+	if len(unassigned) == 0 {
+		color.Yellow("No pending / unassigned service requests found.")
+		return
+	}
+
+	fmt.Printf("%-5s %-10s %-15s %-20s %-30s\n", "No.", "Room No", "Type", "Created At", "Details")
+	fmt.Println(strings.Repeat("-", 85))
+	for i, r := range unassigned {
+		fmt.Printf("%-5d %-10d %-15s %-20s %-30s\n",
+			i+1, r.RoomNum, r.Type, r.CreatedAt.Format("2006-01-02 15:04"), r.Details)
+	}
+
+	var choice int
+	fmt.Print(promptStyle("Enter the number of the request to assign: "))
+	fmt.Scanln(&choice)
+
+	if choice < 1 || choice > len(unassigned) {
+		fmt.Println(errStyle("Invalid selection"))
+		return
+	}
+
+	selectedReq := unassigned[choice-1]
+
+	var empEmail string
+	fmt.Print(promptStyle("Enter Employee Email to assign: "))
+	fmt.Scanln(&empEmail)
+
+	emp, err := h.userService.GetUserByEmail(empEmail)
+	if err != nil {
+		fmt.Println(errStyle("Error finding employee:", err))
+		return
+	}
+
+	err = h.managerService.AssignServiceRequest(selectedReq.ID, emp.ID)
+	if err != nil {
+		fmt.Println(errStyle("Error assigning request:", err))
+		return
+	}
+
+	err = h.serviceRequestService.UpdateServiceRequestAssignment(selectedReq.ID, true)
+	if err != nil {
+		fmt.Println(errStyle("Error marking request as assigned:", err))
+		return
+	}
+
+	fmt.Println(successStyle("Service request assigned successfully!"))
+}
+
+
+func (h *ManagerHandler) UpdateServiceRequestStatus() {
+	fmt.Println(titleStyle("Update Service Request Status"))
+
+	requests, err := h.serviceRequestService.GetUnassignedServiceRequest()
+	if err != nil {
+		fmt.Println(errStyle(fmt.Sprintf("Error fetching service requests: %v", err)))
+		return
+	}
+
+	if len(requests) == 0 {
+		fmt.Println(errStyle("No service requests found."))
+		return
+	}
+
+	fmt.Printf("%-10s %-15s %-20s %-15s %-30s\n", "Room No", "Type", "Status", "Assigned", "Details")
+	fmt.Println(strings.Repeat("-", 90))
+	for _, req := range requests {
+		fmt.Printf("%-10d %-15s %-20s %-15t %-30s\n",
+			req.RoomNum,
+			string(req.Type),
+			string(req.Status),
+			req.IsAssigned,
+			req.Details,
+		)
+	}
+
+	var roomNum int
+	fmt.Print(promptStyle("\nEnter Room Number to update: "))
+	fmt.Scanln(&roomNum)
+
+	var targetRequest *models.ServiceRequest
+	for _, req := range requests {
+		if req.RoomNum == roomNum {
+			targetRequest = &req
+			break
+		}
+	}
+
+	if targetRequest == nil {
+		fmt.Println(errStyle("No service request found for that room number."))
+		return
+	}
+
+	fmt.Println(optionStyle("\n1.") + " Pending")
+	fmt.Println(optionStyle("2.") + " In Progress")
+	fmt.Println(optionStyle("3.") + " Done")
+	fmt.Println(optionStyle("4.") + " Cancelled")
+	fmt.Print(promptStyle("Select new status: "))
+
+	var choice int
+	fmt.Scanln(&choice)
+
+	var newStatus models.ServiceStatus
+	switch choice {
+	case 1:
+		newStatus = models.ServiceStatusPending
+	case 2:
+		newStatus = models.ServiceStatusInProgress
+	case 3:
+		newStatus = models.ServiceStatusDone
+	case 4:
+		newStatus = models.ServiceStatusCancelled
+	default:
+		fmt.Println(errStyle("Invalid status option."))
+		return
+	}
+
+	err = h.serviceRequestService.UpdateServiceRequestStatus(targetRequest.ID, newStatus)
+	if err != nil {
+		fmt.Println(errStyle(fmt.Sprintf("Error updating status: %v", err)))
+		return
+	}
+
+	fmt.Println(successStyle("Service request status updated successfully!"))
 }

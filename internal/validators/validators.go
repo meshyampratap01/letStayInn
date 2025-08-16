@@ -73,3 +73,5 @@ func ValidateCheckoutDate(checkinStr, checkoutStr string) (string, error) {
 	return checkoutDate.Format(layout), nil
 }
 
+
+

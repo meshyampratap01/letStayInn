@@ -12,6 +12,7 @@ import (
 	contextkeys "github.com/meshyampratap01/letStayInn/internal/contextKeys"
 	"github.com/meshyampratap01/letStayInn/internal/services/feedbackService"
 	"github.com/meshyampratap01/letStayInn/internal/services/userService"
+	"github.com/meshyampratap01/letStayInn/internal/utils"
 	"github.com/meshyampratap01/letStayInn/internal/validators"
 )
 
@@ -52,16 +53,14 @@ func (u *UserHandler) SignupHandler() {
 
 	var password string
 	for {
-		fmt.Print(color.HiWhiteString("Enter Password: "))
-
-		pass,err:=u.userService.ReadPasswordMasked()
-		if err!=nil{
-			color.Red("Error reading password: %v",err)
+		pass, err := utils.ReadPasswordMasked(color.HiWhiteString("Enter password: "))
+		if err != nil {
+			color.Red("Error reading password: %v", err)
 			continue
 		}
-		password = strings.TrimSpace(pass)
-		if err:=validators.ValidatePassword(password); err!=nil{
-			color.Red("Error: %v",err)
+		password = pass
+		if err := validators.ValidatePassword(password); err != nil {
+			color.Red("Error: %v", err)
 			continue
 		}
 		break
@@ -84,8 +83,11 @@ func (u *UserHandler) LoginHandler() {
 	fmt.Print(color.HiWhiteString("Enter email: "))
 	email, _ := reader.ReadString('\n')
 
-	fmt.Print(color.HiWhiteString("Enter password: "))
-	password, _ := reader.ReadString('\n')
+	password, err := utils.ReadPasswordMasked(color.HiWhiteString("Enter password: "))
+	if err != nil {
+		color.Red("Error reading password: %v", err)
+		return
+	}
 
 	user, err := u.userService.Login(email, password)
 	if err != nil {
@@ -99,15 +101,4 @@ func (u *UserHandler) LoginHandler() {
 
 	color.Green(config.UserWelcome+"%s!", user.Name)
 	u.DashboardHandler.LoadDashboard(ctx)
-}
-
-func (h *UserHandler) SubmitFeedback(ctx context.Context) {
-	if name, ok := ctx.Value(contextkeys.UserNameKey).(string); ok {
-		color.Cyan(config.FeedbackMsg, name)
-	}
-
-	err := h.feedbackService.SubmitFeedback(ctx)
-	if err != nil {
-		color.Red("Error submitting feedback: %v", err)
-	}
 }

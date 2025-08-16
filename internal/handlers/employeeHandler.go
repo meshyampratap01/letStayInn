@@ -22,60 +22,83 @@ func NewEmployeeHandler(employeeService employeeService.IEmployeeService) *Emplo
 	}
 }
 
-func (eh *EmployeeHandler) ViewAssignedTasks(userID string) {
-	tasks, err := eh.employeeService.ViewAssignedTasks(userID)
+func (eh *EmployeeHandler) ViewAssignedServiceRequests(employeeID string) error {
+	requests, err := eh.employeeService.GetAssignedServiceRequests(employeeID)
 	if err != nil {
-		color.Red("Error fetching assigned tasks: %v", err)
-		return
+		return fmt.Errorf("error fetching assigned requests: %v", err)
 	}
 
-	color.Cyan("\n--- Assigned Tasks ---")
-	for i, task := range tasks {
-		roomNum, err := eh.employeeService.GetRoomNumberByBookingID(task.BookingID)
-		if err != nil {
-			color.Red("Error: %v", err)
-		}
-		fmt.Printf("%d. Type: %s | Room Number: %s | Status: %s\n",
-			i+1, task.Type, roomNum, task.Status)
+	if len(requests) == 0 {
+		color.Yellow("No service requests assigned.")
+		return nil
 	}
+
+	color.Cyan("\n--- Assigned Service Requests ---\n")
+	fmt.Printf("%-5s %-15s %-12s %-15s %-30s\n",
+		"No", "Type", "Room No", "Status", "Details")
+	fmt.Println(strings.Repeat("-", 80))
+
+	for i, req := range requests {
+		roomNum, err := eh.employeeService.GetRoomNumberByBookingID(req.BookingID)
+		if err != nil {
+			roomNum = color.RedString("Unknown")
+		}
+
+		fmt.Printf("%-5d %-15s %-12s %-15s %-30s\n",
+			i+1,
+			req.Type,
+			roomNum,
+			req.Status,
+			req.Details,
+		)
+	}
+	return nil
 }
 
-func (eh *EmployeeHandler) UpdateTaskStatus(userID string) {
-	tasks, err := eh.employeeService.ViewAssignedTasks(userID)
+
+func (eh *EmployeeHandler) UpdateServiceRequestStatus(employeeID string) error {
+	requests, err := eh.employeeService.GetAssignedServiceRequests(employeeID)
 	if err != nil {
-		color.Red("Error fetching tasks: %v", err)
-		return
+		return fmt.Errorf("error fetching service requests: %w", err)
 	}
 
-	if len(tasks) == 0 {
-		color.Yellow("No tasks assigned.")
-		return
+	if len(requests) == 0 {
+		color.Yellow("No service requests assigned.")
+		return nil
 	}
 
-	color.Cyan("\n--- Your Assigned Tasks ---")
-	for i, t := range tasks {
-		roomNumber, err := eh.employeeService.GetRoomNumberByBookingID(t.BookingID)
+	color.Cyan("\n--- Your Assigned Service Requests ---\n")
+	fmt.Printf("%-5s %-15s %-12s %-15s %-30s\n",
+		"No", "Type", "Room No", "Status", "Details")
+	fmt.Println(strings.Repeat("-", 80))
+
+	for i, req := range requests {
+		roomNum, err := eh.employeeService.GetRoomNumberByBookingID(req.BookingID)
 		if err != nil {
-			roomNumber = color.RedString("Unknown")
+			roomNum = color.RedString("Unknown")
 		}
 
-		fmt.Printf("%d. Room: %s | Type: %s | Status: %s\n", i+1, roomNumber, t.Type, t.Status)
+		fmt.Printf("%-5d %-15s %-12s %-15s %-30s\n",
+			i+1,
+			req.Type,
+			roomNum,
+			req.Status,
+			req.Details,
+		)
 	}
 
 	reader := bufio.NewReader(os.Stdin)
-
-	fmt.Print(color.YellowString("\nEnter the number of the task you want to update: "))
+	fmt.Print(color.YellowString("\nEnter the number of the request you want to update: "))
 	choiceStr, _ := reader.ReadString('\n')
 	choiceStr = strings.TrimSpace(choiceStr)
 	choice, err := strconv.Atoi(choiceStr)
-	if err != nil || choice < 1 || choice > len(tasks) {
-		color.Red("Invalid task selection.")
-		return
+	if err != nil || choice < 1 || choice > len(requests) {
+		return fmt.Errorf("invalid request selection")
 	}
 
-	selectedTask := tasks[choice-1]
+	selectedRequest := requests[choice-1]
 
-	fmt.Print(color.YellowString("Select New Status:"))
+	fmt.Println(color.YellowString("\nSelect New Status:"))
 	fmt.Println("1. Pending")
 	fmt.Println("2. InProgress")
 	fmt.Println("3. Done")
@@ -84,33 +107,31 @@ func (eh *EmployeeHandler) UpdateTaskStatus(userID string) {
 	statusChoice, _ := reader.ReadString('\n')
 	statusChoice = strings.TrimSpace(statusChoice)
 
-	var newStatus models.TaskStatus
+	var newStatus models.ServiceStatus
 	switch statusChoice {
 	case "1":
-		newStatus = models.TaskStatusPending
+		newStatus = models.ServiceStatusPending
 	case "2":
-		newStatus = models.TaskStatusInProgress
+		newStatus = models.ServiceStatusInProgress
 	case "3":
-		newStatus = models.TaskStatusDone
+		newStatus = models.ServiceStatusDone
 	default:
-		color.Red("Invalid status choice.")
-		return
+		return fmt.Errorf("invalid status choice")
 	}
 
-	err = eh.employeeService.UpdateTaskStatus(selectedTask.ID, newStatus)
-	if err != nil {
-		color.Red("Error updating task status: %v", err)
-		return
+	if err := eh.employeeService.UpdateServiceRequestStatus(selectedRequest.ID, newStatus); err != nil {
+		return fmt.Errorf("error updating request status: %w", err)
 	}
 
-	color.Green("Task status updated successfully.")
+	color.Green("Service request status updated successfully.")
+	return nil
 }
 
-func (eh *EmployeeHandler) ToggleAvailability(userID string) {
+
+func (eh *EmployeeHandler) ToggleAvailability(userID string) error {
 	available, err := eh.employeeService.GetAvailability(userID)
 	if err != nil {
-		color.Red("Error retrieving availability: %v", err)
-		return
+		return fmt.Errorf("error retrieving availability: %w", err)
 	}
 
 	status := color.RedString("Unavailable")
@@ -127,13 +148,11 @@ func (eh *EmployeeHandler) ToggleAvailability(userID string) {
 
 	if confirm != "y" {
 		color.Yellow("No changes made.")
-		return
+		return nil
 	}
 
-	err = eh.employeeService.ToggleAvailability(userID)
-	if err != nil {
-		color.Red("Error toggling availability: %v", err)
-		return
+	if err := eh.employeeService.ToggleAvailability(userID); err != nil {
+		return fmt.Errorf("error toggling availability: %w", err)
 	}
 
 	newStatus := color.RedString("Unavailable")
@@ -141,4 +160,7 @@ func (eh *EmployeeHandler) ToggleAvailability(userID string) {
 		newStatus = color.GreenString("Available")
 	}
 	color.Green("Availability toggled successfully. New status: %s", newStatus)
+
+	return nil
 }
+
