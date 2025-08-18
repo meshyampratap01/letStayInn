@@ -48,3 +48,13 @@ func (r *GormRoomRepository) GetRoomNumberByBookingID(bookingID string) (string,
 	}
 	return fmt.Sprintf("%d", booking.RoomNum), nil
 }
+
+func (r *GormRoomRepository) RoomExists(number int) (bool, error) {
+	var count int64
+	if err := r.db.Model(&models.Room{}).
+		Where("number = ?", number).
+		Count(&count).Error; err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}

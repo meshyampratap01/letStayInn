@@ -19,18 +19,13 @@ func (r *GormServiceRequestRepository) LoadServiceRequests() ([]models.ServiceRe
 	return requests, err
 }
 
-func (r *GormServiceRequestRepository) SaveServiceRequests(requests []models.ServiceRequest) error {
-	for _, req := range requests {
-		if err := r.db.Save(&req).Error; err != nil {
-			return err
-		}
-	}
-	return nil
+func (r *GormServiceRequestRepository) SaveServiceRequest(req models.ServiceRequest) error {
+	return r.db.Create(&req).Error
 }
 
 func (r *GormServiceRequestRepository) GetUnassignedRequests() ([]models.ServiceRequest, error) {
 	var requests []models.ServiceRequest
-	err := r.db.Where("(is_assigned = ? OR status = ?) AND status != ?", false, models.ServiceStatusPending, models.ServiceStatusCancelled).Find(&requests).Error
+	err := r.db.Where("(is_assigned = ? OR status = ?) AND status != ? AND status != ?", false, models.ServiceStatusPending, models.ServiceStatusCancelled, models.ServiceStatusDone).Find(&requests).Error
 	return requests, err
 }
 

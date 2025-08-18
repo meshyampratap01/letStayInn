@@ -4,7 +4,7 @@ import "github.com/meshyampratap01/letStayInn/internal/models"
 
 type ServiceRequestRepository interface {
 	LoadServiceRequests() ([]models.ServiceRequest, error)
-	SaveServiceRequests([]models.ServiceRequest) error
+	SaveServiceRequest(req models.ServiceRequest) error
 	GetUnassignedRequests() ([]models.ServiceRequest, error)
 	GetServiceRequestByRoomNum(roomNum int) (*models.ServiceRequest, error)
 	GetServiceRequestByReqID(id string) (*models.ServiceRequest, error)

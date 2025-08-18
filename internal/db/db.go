@@ -1,7 +1,6 @@
 package db
 
 import (
-	"fmt"
 	"log"
 	"os"
 
@@ -31,5 +30,4 @@ func ConnectDB() {
 		log.Fatalf("Failed to connect to NeonDB: %v", err)
 	}
 	DB = db
-	fmt.Println("✅ Connected to NeonDB!")
 }

@@ -38,7 +38,8 @@ func InitHandlers() *handlers.UserHandler {
 	managerHandler := handlers.NewManagerHandler(roomSvc, bookingSvc, userSvc, serviceReqSvc, managerSvc)
 	employeeHandler := handlers.NewEmployeeHandler(employeeSvc)
 	feedbackHandler := handlers.NewFeedbackHandler(feedbackSvc)
-	dashboardHandler := handlers.NewDashboardHandler(roomSvc, bookingSvc, feedbackSvc, serviceReqSvc, bookingHandler, serviceReqHandler, managerHandler, employeeSvc, employeeHandler, feedbackHandler)
+	profileHandler := handlers.NewProfileHandler(userSvc)
+	dashboardHandler := handlers.NewDashboardHandler(roomSvc, bookingSvc, feedbackSvc, serviceReqSvc, bookingHandler, serviceReqHandler, managerHandler, employeeSvc, employeeHandler, feedbackHandler,profileHandler)
 
 	CLIUserHandler := handlers.NewUserHandler(userSvc, dashboardHandler, feedbackSvc)
 	return CLIUserHandler

@@ -36,6 +36,30 @@ func (s *UserService) Signup(name, email, password string, roleint int) (string,
 	return "Signup successful as Guest!! Please login.", nil
 }
 
+func (s *UserService) GetAllEmployees() ([]models.User, error) {
+	users, err := s.userRepo.GetAllUsers()
+	if err != nil {
+		return nil, err
+	}
+	var employees []models.User
+	for _, u := range users {
+		if u.Role == models.RoleKitchenStaff || u.Role == models.RoleCleaningStaff || u.Role == models.RoleManager {
+			employees = append(employees, u)
+		}
+	}
+	return employees, nil
+}
+func (s *UserService) GetAllUsers() ([]models.User, error) {
+	return s.userRepo.GetAllUsers()
+}
+func (s *UserService) GetUserByID(userID string) (*models.User, error) {
+	return s.userRepo.GetUserByID(userID)
+}
+
+func (s *UserService) UpdateUser(user *models.User) error {
+	return s.userRepo.UpdateUser(user)
+}
+
 func (s *UserService) GetUserByEmail(email string) (*models.User, error) {
 	email = strings.TrimSpace(email)
 	return s.userRepo.GetUserByEmail(email)

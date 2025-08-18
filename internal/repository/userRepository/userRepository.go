@@ -41,6 +41,10 @@ func (r *GormUserRepository) SaveUser(newUser models.User) error {
 	return r.db.Create(&newUser).Error
 }
 
+func (r *GormUserRepository) UpdateUser(user *models.User) error {
+	return r.db.Save(user).Error
+}
+
 func (r *GormUserRepository) SaveAllUsers(users []models.User) error {
 	for _, user := range users {
 		if err := r.db.Save(&user).Error; err != nil {

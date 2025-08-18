@@ -7,6 +7,7 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/meshyampratap01/letStayInn/internal/config"
+	"github.com/meshyampratap01/letStayInn/internal/models"
 	"github.com/meshyampratap01/letStayInn/internal/services/bookingService"
 	"github.com/meshyampratap01/letStayInn/internal/services/roomService"
 	"github.com/meshyampratap01/letStayInn/internal/utils"
@@ -159,12 +160,16 @@ func (h *BookingHandler) CancelBookingHandler(ctx context.Context) {
 		return
 	}
 
-	color.Cyan(config.TitleActiveBookings)
+	color.Cyan("\nYour Active Bookings:\n")
 	for i, b := range bookings {
-		color.Green("%d. Room: %d | Check-in: %s | Check-out: %s",
-			i+1, b.RoomNum, b.CheckIn.Format("02-01-2006"), b.CheckOut.Format("02-01-2006"))
+		fmt.Println(strings.Repeat("-", 50))
+		color.Yellow("%d) Room %d", i+1, b.RoomNum)
+		fmt.Printf("   Check-in : %s\n", b.CheckIn.Format("02 Jan 2006"))
+		fmt.Printf("   Check-out: %s\n", b.CheckOut.Format("02 Jan 2006"))
+		fmt.Printf("   Status   : %s\n", b.Status)
 	}
 
+	fmt.Println(strings.Repeat("-", 50))
 	var choice int
 	fmt.Print(color.HiWhiteString(config.MsgEnterBookingToCancel))
 	fmt.Scanln(&choice)
@@ -176,6 +181,25 @@ func (h *BookingHandler) CancelBookingHandler(ctx context.Context) {
 	}
 
 	selectedBooking := bookings[choice-1]
+
+	fmt.Printf("\nAre you sure you want to cancel booking for Room %d (Check-in: %s, Check-out: %s)?\n",
+		selectedBooking.RoomNum,
+		selectedBooking.CheckIn.Format("02 Jan 2006"),
+		selectedBooking.CheckOut.Format("02 Jan 2006"),
+	)
+	fmt.Println("1) Yes, cancel it")
+	fmt.Println("2) No, keep booking")
+
+	var confirmChoice int
+	fmt.Print(color.HiWhiteString("Enter your choice: "))
+	fmt.Scanln(&confirmChoice)
+
+	if confirmChoice != 1 {
+		color.Yellow("Cancellation aborted. Your booking remains active.")
+		utils.AddBackButton()
+		return
+	}
+
 	err = h.bookingService.CancelBooking(ctx, selectedBooking.ID)
 	if err != nil {
 		color.Red(config.MsgCancelFailed, err)
@@ -186,24 +210,51 @@ func (h *BookingHandler) CancelBookingHandler(ctx context.Context) {
 }
 
 func (h *BookingHandler) ViewMyBookingsHandler(ctx context.Context) {
-	color.Cyan(config.TitleMyBookings)
+	fmt.Println("\n" + config.TitleMyBookings)
 	bookings, err := h.bookingService.GetUserActiveBookings(ctx)
 	if err != nil {
-		color.Red(config.MsgFailedFetchBookings, err)
+		fmt.Println("Failed to fetch bookings:", err)
 		utils.AddBackButton()
 		return
 	}
 
 	if len(bookings) == 0 {
-		color.Yellow(config.MsgNoBookings)
+		fmt.Println("No bookings found.")
 		utils.AddBackButton()
 		return
 	}
 
-	for _, b := range bookings {
-		color.Green("Room: %d | Status: %s | Check-in: %s",
-			b.RoomNum, b.Status, b.CheckIn.Format("02-01-2006"))
+	for i, b := range bookings {
+		roomType := "Unknown"
+		room, err := h.bookingService.GetRoomByNumber(b.RoomNum)
+		if err == nil && room != nil {
+			roomType = string(room.Type)
+		}
+		fmt.Println("---------------------------------------")
+		fmt.Printf(" Booking #%d\n", i+1)
+		fmt.Println("---------------------------------------")
+		fmt.Printf(" Room Number : %d\n", b.RoomNum)
+		fmt.Printf(" Room Type   : %s\n", roomType)
+		fmt.Printf(" Check-in    : %s\n", b.CheckIn.Format("02 Jan 2006, 15:04"))
+		fmt.Printf(" Check-out   : %s\n", b.CheckOut.Format("02 Jan 2006, 15:04"))
+		fmt.Printf(" Status      : %s\n", statusLabel(b.Status))
+		fmt.Printf(" Food Req    : %s\n", utils.BoolToIcon(b.FoodReq, "Yes", "No"))
+		fmt.Printf(" Cleaning    : %s\n", utils.BoolToIcon(b.CleanReq, "Yes", "No"))
+		fmt.Printf(" Booked On   : %s\n", b.CreatedAt.Format("02 Jan 2006, 15:04"))
 	}
 
+	fmt.Println("---------------------------------------")
 	utils.AddBackButton()
+}
+func statusLabel(status string) string {
+	switch status {
+	case models.BookingStatusBooked:
+		return "Booked"
+	case models.BookingStatusCancelled:
+		return "Cancelled"
+	case models.BookingStatusCompleted:
+		return "Completed"
+	default:
+		return status
+	}
 }

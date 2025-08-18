@@ -31,26 +31,47 @@ func (es *EmployeeService) GetAssignedServiceRequests(employeeID string) ([]mode
 }
 
 func (es *EmployeeService) UpdateServiceRequestStatus(requestID string, newStatus models.ServiceStatus) error {
-    requests, err := es.serviceRequestRepo.LoadServiceRequests()
-    if err != nil {
-        return err
-    }
+	requests, err := es.serviceRequestRepo.LoadServiceRequests()
+	if err != nil {
+		return err
+	}
 
-    var requestToUpdate *models.ServiceRequest
-    for i := range requests {
-        if requests[i].ID == requestID {
-            requestToUpdate = &requests[i]
-            break
-        }
-    }
+	var requestToUpdate *models.ServiceRequest
+	for i := range requests {
+		if requests[i].ID == requestID {
+			requestToUpdate = &requests[i]
+			break
+		}
+	}
 
-    if requestToUpdate == nil {
-        return fmt.Errorf("service request with ID %s not found", requestID)
-    }
+	if requestToUpdate == nil {
+		return fmt.Errorf("service request with ID %s not found", requestID)
+	}
 
-    requestToUpdate.Status = newStatus
+	requestToUpdate.Status = newStatus
 
-    return es.serviceRequestRepo.UpdateServiceRequest(requestToUpdate)
+	if newStatus == models.ServiceStatusDone {
+		if requestToUpdate.AssignedTo != "" {
+			emp, err := es.userRepo.GetUserByID(requestToUpdate.AssignedTo)
+			if err == nil && emp != nil {
+				emp.Available = true
+				_ = es.userRepo.UpdateUser(emp)
+			}
+		}
+		if requestToUpdate.BookingID != "" {
+			booking, err := es.bookingRepo.GetBookingByID(requestToUpdate.BookingID)
+			if err == nil && booking != nil {
+				switch requestToUpdate.Type {
+				case models.ServiceTypeCleaning:
+					booking.CleanReq = false
+				case models.ServiceTypeFood:
+					booking.FoodReq = false
+				}
+				_ = es.bookingRepo.UpdateBooking(*booking)
+			}
+		}
+	}
+	return es.serviceRequestRepo.UpdateServiceRequest(requestToUpdate)
 }
 func (es *EmployeeService) ToggleAvailability(userID string) error {
 	return es.userRepo.ToggleStaffAvailability(userID)

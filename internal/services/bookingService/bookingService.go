@@ -17,14 +17,14 @@ import (
 type BookingService struct {
 	bookingRepo bookingRepository.BookingRepository
 	roomRepo    roomRepository.IRoomRepository
-	userRepo	userRepository.UserRepository
+	userRepo    userRepository.UserRepository
 }
 
-func NewBookingService(bookingRepo bookingRepository.BookingRepository, roomRepo roomRepository.IRoomRepository,userRepo userRepository.UserRepository) IBookingService {
+func NewBookingService(bookingRepo bookingRepository.BookingRepository, roomRepo roomRepository.IRoomRepository, userRepo userRepository.UserRepository) IBookingService {
 	return &BookingService{
 		bookingRepo: bookingRepo,
 		roomRepo:    roomRepo,
-		userRepo: 	 userRepo,
+		userRepo:    userRepo,
 	}
 }
 
@@ -79,7 +79,6 @@ func (s *BookingService) BookRoom(ctx context.Context, roomNum int, checkInStr, 
 		return err
 	}
 
-
 	for i := range rooms {
 		if rooms[i].ID == selected.ID {
 			rooms[i].IsAvailable = false
@@ -132,16 +131,27 @@ func (s *BookingService) CancelBooking(ctx context.Context, bookingID string) er
 
 	return s.bookingRepo.SaveBookings(bookings)
 }
+func (s *BookingService) GetRoomByNumber(roomNum int) (*models.Room, error) {
+	rooms, err := s.roomRepo.GetAllRooms()
+	if err != nil {
+		return nil, err
+	}
+	for i := range rooms {
+		if rooms[i].Number == roomNum {
+			return &rooms[i], nil
+		}
+	}
+	return nil, fmt.Errorf("room not found")
+}
 
 func (s *BookingService) GetActiveBookings() ([]models.Booking, error) {
 	return s.bookingRepo.GetActiveBookings()
 }
 
-
 func (s *BookingService) GetUserActiveBookings(ctx context.Context) ([]models.Booking, error) {
 	userID, ok := ctx.Value(contextkeys.UserIDKey).(string)
 	if !ok {
-		return nil,fmt.Errorf("invalid or missing user ID in context")
+		return nil, fmt.Errorf("invalid or missing user ID in context")
 	}
 	bookings, err := s.bookingRepo.GetBookingsByUserID(userID)
 	if err != nil {
@@ -157,7 +167,6 @@ func (s *BookingService) GetUserActiveBookings(ctx context.Context) ([]models.Bo
 	return active, nil
 }
 
-
 func (s *BookingService) GetBookingIDByRoomNumber(roomNumber int) (string, error) {
 	bookings, err := s.bookingRepo.GetAllBookings()
 	if err != nil {
@@ -171,7 +180,6 @@ func (s *BookingService) GetBookingIDByRoomNumber(roomNumber int) (string, error
 	}
 	return "", nil
 }
-
 
 func (bs *BookingService) IsRoomBooked(roomNumber int) (bool, error) {
 	return bs.bookingRepo.CheckRoomBooked(roomNumber)

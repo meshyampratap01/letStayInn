@@ -41,7 +41,7 @@ func ValidateDate(dateStr string) (string, error) {
 	layout := "02-01-2006"
 	parsedDate, err := time.Parse(layout, dateStr)
 	if err != nil {
-		return "", errors.New("invalid date format (expected DD-MM-YYYY)")
+		return "", errors.New("invalid date (expected DD-MM-YYYY, must be valid)")
 	}
 
 	today := time.Now().Truncate(24 * time.Hour)
@@ -58,7 +58,7 @@ func ValidateCheckoutDate(checkinStr, checkoutStr string) (string, error) {
 
 	checkinDate, err := time.Parse(layout, checkinStr)
 	if err != nil {
-		return "", errors.New("invalid check-in date format (expected DD-MM-YYYY)")
+		return "", errors.New("invalid date (expected DD-MM-YYYY, must be valid)")
 	}
 
 	checkoutDate, err := time.Parse(layout, checkoutStr)

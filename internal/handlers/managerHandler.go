@@ -14,6 +14,7 @@ import (
 	"github.com/meshyampratap01/letStayInn/internal/services/roomService"
 	"github.com/meshyampratap01/letStayInn/internal/services/servicerequest"
 	"github.com/meshyampratap01/letStayInn/internal/services/userService"
+	"github.com/meshyampratap01/letStayInn/internal/validators"
 )
 
 type ManagerHandler struct {
@@ -73,7 +74,6 @@ func (mh ManagerHandler) ManagerDashboardSummary() {
 	fmt.Printf("Pending Service Requests: %d\n", pendingRequests)
 }
 
-
 func (h *ManagerHandler) ListRooms() {
 	rooms, err := h.roomService.GetAllRooms()
 	if err != nil {
@@ -107,26 +107,91 @@ func (h *ManagerHandler) ListRooms() {
 	}
 }
 
-
 func (h *ManagerHandler) AddRoom() {
 	reader := bufio.NewReader(os.Stdin)
 
-	fmt.Print(color.YellowString("Enter room number: "))
 	var number int
-	fmt.Scanln(&number)
+	for {
+		fmt.Print(color.YellowString("Enter room number: "))
+		_, err := fmt.Scanln(&number)
+		if err != nil || number <= 0 {
+			color.Red("Invalid room number. Please enter a positive number.")
+			reader.ReadString('\n')
+			continue
+		}
 
-	fmt.Print(color.YellowString("Enter room type (e.g., Deluxe, Standard): "))
-	roomType, _ := reader.ReadString('\n')
-	roomType = strings.TrimSpace(roomType)
+		exists, err := h.roomService.RoomExists(number)
+		if err != nil {
+			color.Red("Error checking room number: %v", err)
+			continue
+		}
+		if exists {
+			color.Red("Room number already exists. Please enter a different number.")
+			continue
+		}
 
-	fmt.Print(color.YellowString("Enter room price: "))
+		break
+	}
+
+	var typeChoice int
+	var roomType string
+	for {
+		fmt.Println(color.CyanString("Select room type:"))
+		fmt.Println("1. Standard")
+		fmt.Println("2. Deluxe")
+		fmt.Println("3. Suite")
+		fmt.Println("4. Executive")
+		fmt.Print(color.YellowString("Enter choice (1-4): "))
+		fmt.Scanln(&typeChoice)
+
+		switch typeChoice {
+		case 1:
+			roomType = string(models.RoomTypeStandard)
+		case 2:
+			roomType = string(models.RoomTypeDeluxe)
+		case 3:
+			roomType = string(models.RoomTypeSuite)
+		case 4:
+			roomType = string(models.RoomTypeExecutive)
+		default:
+			color.Red("Invalid choice. Please try again.")
+			continue
+		}
+		break
+	}
+
 	var price float64
-	fmt.Scanln(&price)
+	for {
+		fmt.Print(color.YellowString("Enter room price: "))
+		_, err := fmt.Scanln(&price)
+		if err != nil || price <= 0 {
+			color.Red("Invalid price. Please enter a positive number.")
+			reader.ReadString('\n')
+			continue
+		}
+		break
+	}
 
-	fmt.Print(color.YellowString("Is the room available? (yes/no): "))
-	availableInput, _ := reader.ReadString('\n')
-	availableInput = strings.TrimSpace(strings.ToLower(availableInput))
-	isAvailable := availableInput == "yes"
+	var availChoice int
+	var isAvailable bool
+	for {
+		fmt.Println(color.CyanString("Is the room available?"))
+		fmt.Println("1. Yes")
+		fmt.Println("2. No")
+		fmt.Print(color.YellowString("Enter choice: "))
+		fmt.Scanln(&availChoice)
+
+		switch availChoice {
+		case 1:
+			isAvailable = true
+		case 2:
+			isAvailable = false
+		default:
+			color.Red("Invalid choice. Please enter 1 or 2.")
+			continue
+		}
+		break
+	}
 
 	fmt.Print(color.YellowString("Enter room description: "))
 	description, _ := reader.ReadString('\n')
@@ -175,9 +240,27 @@ func (h *ManagerHandler) UpdateRoom() {
 
 	switch choice {
 	case 1:
-		fmt.Print(color.YellowString("Enter new Room Type: "))
-		roomType, _ = reader.ReadString('\n')
-		roomType = strings.TrimSpace(roomType)
+		fmt.Println(color.CyanString("Select new room type:"))
+		fmt.Println("1. Standard")
+		fmt.Println("2. Deluxe")
+		fmt.Println("3. Suite")
+		fmt.Println("4. Executive")
+		fmt.Print(color.YellowString("Enter choice (1-4): "))
+		var typeChoice int
+		fmt.Scanln(&typeChoice)
+		switch typeChoice {
+		case 1:
+			roomType = string(models.RoomTypeStandard)
+		case 2:
+			roomType = string(models.RoomTypeDeluxe)
+		case 3:
+			roomType = string(models.RoomTypeSuite)
+		case 4:
+			roomType = string(models.RoomTypeExecutive)
+		default:
+			color.Red("Invalid room type.")
+			return
+		}
 	case 2:
 		fmt.Print(color.YellowString("Enter new Price: "))
 		fmt.Scanln(&price)
@@ -266,7 +349,6 @@ func (h *ManagerHandler) ListBookingsAndGuests() {
 		)
 	}
 }
-
 
 func (mh *ManagerHandler) UpdateEmployeeAvailability() {
 	reader := bufio.NewReader(os.Stdin)
@@ -442,17 +524,28 @@ EmpMgmtLoop:
 	}
 }
 
-
 func (h *ManagerHandler) CreateEmployee() {
-	var name, email, password string
-	var roleInt int
-	var available bool
+	var email, password string
+	var roleInt, availChoice int
+
+	reader := bufio.NewReader(os.Stdin)
 
 	fmt.Println("\n--- Create Employee ---")
 	fmt.Print("Enter Name: ")
-	fmt.Scanln(&name)
-	fmt.Print("Enter Email: ")
-	fmt.Scanln(&email)
+	name, _ := reader.ReadString('\n')
+	name = strings.TrimSpace(name)
+
+	for {
+		fmt.Print("Enter Email: ")
+		fmt.Scanln(&email)
+
+		if err := validators.ValidateEmail(email); err != nil {
+			color.Red(err.Error())
+			continue
+		}
+		break
+	}
+
 	fmt.Print("Enter Password: ")
 	fmt.Scanln(&password)
 
@@ -476,8 +569,22 @@ func (h *ManagerHandler) CreateEmployee() {
 		return
 	}
 
-	fmt.Print("Is Employee Available? (true/false): ")
-	fmt.Scanln(&available)
+	fmt.Println("Is Employee Available?")
+	fmt.Println("1. Yes")
+	fmt.Println("2. No")
+	fmt.Print("Enter choice: ")
+	fmt.Scanln(&availChoice)
+
+	var available bool
+	switch availChoice {
+	case 1:
+		available = true
+	case 2:
+		available = false
+	default:
+		fmt.Println("Invalid availability selection.")
+		return
+	}
 
 	emp, err := h.userService.CreateEmployee(name, email, password, role, available)
 	if err != nil {
@@ -487,7 +594,6 @@ func (h *ManagerHandler) CreateEmployee() {
 
 	color.Green("Employee created successfully! ID: %s", emp.ID)
 }
-
 
 func (h *ManagerHandler) serviceRequestManagementMenu() {
 ServiceReqLoop:
@@ -557,8 +663,6 @@ func (mh *ManagerHandler) ViewUnassignedServiceRequests() {
 	}
 }
 
-
-
 func (m *ManagerHandler) CancelServiceRequest() {
 	color.Cyan("\n--- Unassigned Service Requests ---")
 
@@ -600,7 +704,6 @@ func (m *ManagerHandler) CancelServiceRequest() {
 	fmt.Println(successStyle("Service request canceled successfully."))
 }
 
-
 func (h *ManagerHandler) AssignServiceRequestToEmployee() {
 	fmt.Println(titleStyle("Unassigned Service Requests\n"))
 	unassigned, err := h.serviceRequestService.GetUnassignedServiceRequest()
@@ -632,31 +735,68 @@ func (h *ManagerHandler) AssignServiceRequestToEmployee() {
 
 	selectedReq := unassigned[choice-1]
 
-	var empEmail string
-	fmt.Print(promptStyle("Enter Employee Email to assign: "))
-	fmt.Scanln(&empEmail)
-
-	emp, err := h.userService.GetUserByEmail(empEmail)
-	if err != nil {
-		fmt.Println(errStyle("Error finding employee:", err))
+	var requiredRole models.Role
+	switch selectedReq.Type {
+	case models.ServiceTypeCleaning:
+		requiredRole = models.RoleCleaningStaff
+	case models.ServiceTypeFood:
+		requiredRole = models.RoleKitchenStaff
+	default:
+		fmt.Println(errStyle("Unknown service request type. Cannot assign."))
 		return
 	}
 
-	err = h.managerService.AssignServiceRequest(selectedReq.ID, emp.ID)
+	employees, err := h.userService.GetAllEmployees()
 	if err != nil {
-		fmt.Println(errStyle("Error assigning request:", err))
+		fmt.Println(errStyle("Error fetching employees:", err))
+		return
+	}
+	var filteredEmps []models.User
+	for _, u := range employees {
+		if u.Role == requiredRole {
+			filteredEmps = append(filteredEmps, u)
+		}
+	}
+	if len(filteredEmps) == 0 {
+		color.Yellow("No employees for this request type.")
 		return
 	}
 
-	err = h.serviceRequestService.UpdateServiceRequestAssignment(selectedReq.ID, true)
-	if err != nil {
-		fmt.Println(errStyle("Error marking request as assigned:", err))
-		return
+	for {
+		fmt.Printf("%-5s %-20s %-20s %-12s\n", "No.", "Name", "Email", "Available")
+		for i, emp := range filteredEmps {
+			availStr := color.GreenString("Yes")
+			if !emp.Available {
+				availStr = color.RedString("No")
+			}
+			fmt.Printf("%-5d %-20s %-20s %-12s\n", i+1, emp.Name, emp.Email, availStr)
+		}
+		var empChoice int
+		fmt.Print(promptStyle("Select employee number to assign: "))
+		fmt.Scanln(&empChoice)
+		if empChoice < 1 || empChoice > len(filteredEmps) {
+			fmt.Println(errStyle("Invalid employee selection"))
+			continue
+		}
+		emp := filteredEmps[empChoice-1]
+		if !emp.Available {
+			color.Red("Selected employee is not available. Please choose an available employee.")
+			continue
+		}
+		err = h.managerService.AssignServiceRequest(selectedReq.ID, emp.ID)
+		if err != nil {
+			fmt.Println(errStyle("Error assigning request:", err))
+			return
+		}
+		err = h.serviceRequestService.UpdateServiceRequestAssignment(selectedReq.ID, true)
+		if err != nil {
+			fmt.Println(errStyle("Error marking request as assigned:", err))
+			return
+		}
+		fmt.Println(successStyle("Service request assigned successfully!"))
+		break
 	}
-
-	fmt.Println(successStyle("Service request assigned successfully!"))
 }
-
 
 func (h *ManagerHandler) UpdateServiceRequestStatus() {
 	fmt.Println(titleStyle("Update Service Request Status"))

@@ -22,7 +22,7 @@ type Booking struct {
 	Status     string         `json:"status"`
 	FoodReq    bool           `json:"food_req"`
 	CleanReq   bool           `json:"clean_req"`
-	FeedbackID []string       `gorm:"-" json:"feedback_id"` // Not a DB column, handled via Feedback table
+	FeedbackID []string       `gorm:"-" json:"feedback_id"` 
 	CreatedAt  time.Time      `json:"created_at"`
 	UpdatedAt  time.Time      `json:"updated_at"`
 	DeletedAt  gorm.DeletedAt `gorm:"index" json:"-"`

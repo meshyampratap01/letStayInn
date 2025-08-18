@@ -8,4 +8,5 @@ type IRoomRepository interface {
 	GetAvailableRooms() ([]models.Room, error)
 	AddRoom(room models.Room) error
 	GetRoomNumberByBookingID(string) (string, error)
+	RoomExists(number int) (bool, error)
 }

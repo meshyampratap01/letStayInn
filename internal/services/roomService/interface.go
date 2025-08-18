@@ -10,4 +10,5 @@ type IRoomService interface {
 	AddRoom(number int, roomType string, price float64, isAvailable bool, description string) error
 	UpdateRoom(number int, choice int, roomType string, price float64, isAvailable bool, description string) error
 	DeleteRoom(number int) error
+	RoomExists(number int) (bool, error)
 }

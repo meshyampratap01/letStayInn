@@ -147,6 +147,16 @@ func (s *ManagerService) AssignServiceRequest(reqID string, empID string) error 
 	req.AssignedTo = empID
 	req.IsAssigned = true
 	req.UpdatedAt = time.Now()
+
+	emp, err := s.userRepo.GetUserByID(empID)
+	if err != nil {
+		return err
+	}
+	emp.Available = false
+	if err := s.userRepo.UpdateUser(emp); err != nil {
+		return err
+	}
+
 	return s.serviceRequestRepo.UpdateServiceRequest(req)
 }
 
@@ -183,7 +193,6 @@ func (s *ManagerService) PrintHotelReport() error {
 		}
 	}
 
-
 	requestStatusSummary := make(map[models.ServiceStatus]int)
 	for _, req := range serviceRequests {
 		requestStatusSummary[req.Status]++
@@ -207,7 +216,6 @@ func (s *ManagerService) PrintHotelReport() error {
 
 	return nil
 }
-
 
 func (ms *ManagerService) ViewAllFeedback() ([]models.Feedback, error) {
 	return ms.feedbackRepo.GetAllFeedback()

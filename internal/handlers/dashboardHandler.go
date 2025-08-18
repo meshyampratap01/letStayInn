@@ -33,7 +33,8 @@ type DashboardHandler struct {
 	managerHandler        *ManagerHandler
 	employeeService       employeeService.IEmployeeService
 	employeeHandler       *EmployeeHandler
-	feedbackHandler		  *FeedbackHandler
+	feedbackHandler       *FeedbackHandler
+	profileHandler        *ProfileHandler
 }
 
 func NewDashboardHandler(
@@ -47,6 +48,7 @@ func NewDashboardHandler(
 	employeeService employeeService.IEmployeeService,
 	employeeHandler *EmployeeHandler,
 	feedbackHandler *FeedbackHandler,
+	profileHandler *ProfileHandler,
 ) *DashboardHandler {
 	return &DashboardHandler{
 		RoomService:           roomSvc,
@@ -59,6 +61,7 @@ func NewDashboardHandler(
 		employeeService:       employeeService,
 		employeeHandler:       employeeHandler,
 		feedbackHandler:       feedbackHandler,
+		profileHandler:        profileHandler,
 	}
 }
 
@@ -85,7 +88,9 @@ func (h *DashboardHandler) guestDashboard(ctx context.Context) {
 		fmt.Println(optionStyle("5.") + " Request Food")
 		fmt.Println(optionStyle("6.") + " Request Room Cleaning")
 		fmt.Println(optionStyle("7.") + " Give Feedback")
-		fmt.Println(optionStyle("8.") + " Logout")
+		fmt.Println(optionStyle("8.") + " View Profile")
+		fmt.Println(optionStyle("9.") + " Update Profile")
+		fmt.Println(optionStyle("10.") + " Logout")
 		fmt.Print(promptStyle(config.SelectOption))
 
 		var choice int
@@ -105,10 +110,15 @@ func (h *DashboardHandler) guestDashboard(ctx context.Context) {
 		case 6:
 			h.ServiceRequestHandler.ServiceRequestHandler(ctx, models.ServiceTypeCleaning)
 		case 7:
-			if err := (ctx); err != nil {
-				fmt.Println(errStyle("Error submitting feedback:"), err)
+			err := h.feedbackHandler.SubmitFeedback(ctx)
+			if err != nil {
+				fmt.Println(errStyle("Error submitting feedback: "), err)
 			}
 		case 8:
+			h.profileHandler.ViewProfile(ctx)
+		case 9:
+			h.profileHandler.UpdateProfile(ctx)
+		case 10:
 			fmt.Println(successStyle("Logging out..."))
 			return
 		default:
@@ -127,7 +137,9 @@ func (h *DashboardHandler) managerDashboard() {
 		fmt.Println(optionStyle("5.") + " Service Requests Management")
 		fmt.Println(optionStyle("6.") + " Generate Reports")
 		fmt.Println(optionStyle("7.") + " View Guest Feedback")
-		fmt.Println(optionStyle("8.") + " Logout")
+		fmt.Println(optionStyle("8.") + " View Profile")
+		fmt.Println(optionStyle("9.") + " Update Profile")
+		fmt.Println(optionStyle("10.") + " Logout")
 		fmt.Print(promptStyle(config.SelectOption))
 
 		var choice int
@@ -136,29 +148,25 @@ func (h *DashboardHandler) managerDashboard() {
 		switch choice {
 		case 1:
 			h.managerHandler.ManagerDashboardSummary()
-
 		case 2:
 			h.managerHandler.ListBookingsAndGuests()
-
 		case 3:
 			h.managerHandler.roomManagementMenu()
-
 		case 4:
 			h.managerHandler.employeeManagementMenu()
-
 		case 5:
 			h.managerHandler.serviceRequestManagementMenu()
-
 		case 6:
 			h.managerHandler.GenerateReport()
-
 		case 7:
 			h.managerHandler.ViewFeedback()
-
 		case 8:
+			h.profileHandler.ViewProfile(context.Background())
+		case 9:
+			h.profileHandler.UpdateProfile(context.Background())
+		case 10:
 			fmt.Println(successStyle("Logging out..."))
 			return
-
 		default:
 			fmt.Println(errStyle(config.InvalidOption))
 		}
@@ -177,7 +185,9 @@ func (h *DashboardHandler) EmployeeDashboard(ctx context.Context) {
 		fmt.Println(optionStyle("\n1.") + " View Assigned Service Requests")
 		fmt.Println(optionStyle("2.") + " Update Service Request Status")
 		fmt.Println(optionStyle("3.") + " Toggle Availability")
-		fmt.Println(optionStyle("4.") + " Logout")
+		fmt.Println(optionStyle("4.") + " View Profile")
+		fmt.Println(optionStyle("5.") + " Update Profile")
+		fmt.Println(optionStyle("6.") + " Logout")
 		fmt.Print(promptStyle(config.SelectOption))
 
 		var choice int
@@ -200,6 +210,10 @@ func (h *DashboardHandler) EmployeeDashboard(ctx context.Context) {
 				fmt.Println(errStyle(fmt.Sprintf("Error toggling availability: %v", err)))
 			}
 		case 4:
+			h.profileHandler.ViewProfile(ctx)
+		case 5:
+			h.profileHandler.UpdateProfile(ctx)
+		case 6:
 			fmt.Println(successStyle("Logging out..."))
 			return
 		default:

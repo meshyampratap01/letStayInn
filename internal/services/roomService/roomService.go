@@ -43,7 +43,7 @@ func (r *RoomService) AddRoom(number int, roomType string, price float64, isAvai
 	newRoom := models.Room{
 		ID:          utils.NewUUID(),
 		Number:      number,
-		Type:        roomType,
+		Type:        models.RoomType(roomType),
 		Price:       price,
 		IsAvailable: isAvailable,
 		Description: description,
@@ -62,7 +62,7 @@ func (r *RoomService) UpdateRoom(number int, choice int, roomType string, price 
 		if room.Number == number {
 			switch choice {
 			case 1:
-				rooms[i].Type = roomType
+				rooms[i].Type = models.RoomType(roomType)
 			case 2:
 				rooms[i].Price = price
 			case 3:
@@ -96,7 +96,7 @@ func (r *RoomService) DeleteRoom(number int) error {
 	for _, room := range rooms {
 		if room.Number == number {
 			found = true
-			continue 
+			continue
 		}
 		newRooms = append(newRooms, room)
 	}
@@ -108,3 +108,7 @@ func (r *RoomService) DeleteRoom(number int) error {
 	return r.roomRepo.SaveRooms(newRooms)
 }
 
+
+func (s *RoomService) RoomExists(number int) (bool, error) {
+	return s.roomRepo.RoomExists(number)
+}

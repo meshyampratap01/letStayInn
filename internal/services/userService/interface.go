@@ -10,5 +10,9 @@ type IUserService interface {
 	GetUserByEmail(email string) (*models.User, error)
 	GetUserNameByID(userID string) (string, error)
 	CreateUser(name, email, password string, role models.Role) models.User
-	CreateEmployee(name, email, password string, role models.Role, available bool) (models.User, error) 
+	CreateEmployee(name, email, password string, role models.Role, available bool) (models.User, error)
+	GetUserByID(userID string) (*models.User, error)
+	UpdateUser(user *models.User) error
+	GetAllUsers() ([]models.User, error)
+	GetAllEmployees() ([]models.User, error)
 }

@@ -45,6 +45,22 @@ func (s *ServiceRequestService) ServiceRequestGetter(ctx context.Context, roomNu
 		return fmt.Errorf("you don't have any active or completed booking for room %d", roomNum)
 	}
 
+	selectedBooking, err := s.bookingRepo.GetBookingByID(bid)
+	if err != nil {
+		return fmt.Errorf("error fetching the required booking: %w", err)
+	}
+
+	switch reqType {
+	case models.ServiceTypeFood:
+		selectedBooking.FoodReq = true
+	case models.ServiceTypeCleaning:
+		selectedBooking.CleanReq = true
+	}
+
+	if err := s.bookingRepo.UpdateBooking(*selectedBooking); err != nil {
+		return fmt.Errorf("failed to update booking request flags: %w", err)
+	}
+
 	requests, err := s.serviceRequestRepo.LoadServiceRequests()
 	if err != nil {
 		return fmt.Errorf("failed to load service requests: %w", err)
@@ -76,9 +92,7 @@ func (s *ServiceRequestService) ServiceRequestGetter(ctx context.Context, roomNu
 		Details:   details,
 	}
 
-	requests = append(requests, newRequest)
-
-	if err := s.serviceRequestRepo.SaveServiceRequests(requests); err != nil {
+	if err := s.serviceRequestRepo.SaveServiceRequest(newRequest); err != nil {
 		return fmt.Errorf("failed to save request: %w", err)
 	}
 
@@ -128,7 +142,6 @@ func (s *ServiceRequestService) UpdateServiceRequestStatus(reqID string, status 
 
 	return s.serviceRequestRepo.UpdateServiceRequest(req)
 }
-
 
 func (s *ServiceRequestService) UpdateServiceRequestAssignment(reqID string, isAssigned bool) error {
 	return s.serviceRequestRepo.UpdateIsAssigned(reqID, isAssigned)

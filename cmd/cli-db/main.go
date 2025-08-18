@@ -14,21 +14,18 @@ import (
 
 func main() {
 
-	// Connect to NeonDB
 	db.ConnectDB()
 
-	// Get the underlying sql.DB to manage connection pool and close on exit
 	sqlDB, err := db.DB.DB()
 	if err != nil {
-		log.Fatalf("❌ Failed to get sql.DB from gorm: %v", err)
+		log.Fatalf(config.ErrFailedToGetSQLDB, err)
 	}
 	defer func() {
 		if err := sqlDB.Close(); err != nil {
-			log.Printf("⚠️  Error closing database connection: %v", err)
+			log.Printf(config.ErrDBClose, err)
 		}
 	}()
 
-	// Migrate all models
 	if err := db.DB.AutoMigrate(
 		&models.User{},
 		&models.Room{},
@@ -36,9 +33,7 @@ func main() {
 		&models.Feedback{},
 		&models.ServiceRequest{},
 	); err != nil {
-		log.Fatalf("❌ Migration failed: %v", err)
-	} else {
-		fmt.Println("✅ Database migrated successfully!")
+		log.Fatalf(config.ErrMigrationFailed, err)
 	}
 
 	CLIUserHandler := container.InitHandlers()
