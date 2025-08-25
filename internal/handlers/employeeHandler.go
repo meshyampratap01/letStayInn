@@ -39,12 +39,9 @@ func (eh *EmployeeHandler) ViewAssignedServiceRequests(employeeID string) error 
 	fmt.Println(strings.Repeat("-", 80))
 
 	for i, req := range requests {
-		roomNum, err := eh.employeeService.GetRoomNumberByBookingID(req.BookingID)
-		if err != nil {
-			roomNum = color.RedString("Unknown")
-		}
+		roomNum:=req.RoomNum
 
-		fmt.Printf("%-5d %-15s %-12s %-15s %-30s\n",
+		fmt.Printf("%-5d %-15s %-12d %-15s %-30s\n",
 			i+1,
 			req.Type,
 			roomNum,
