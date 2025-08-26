@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/meshyampratap01/letStayInn/internal/validators"
+
 	contextkeys "github.com/meshyampratap01/letStayInn/internal/contextKeys"
 	"github.com/meshyampratap01/letStayInn/internal/models"
 	"github.com/meshyampratap01/letStayInn/internal/repository/bookingRepository"
@@ -29,6 +31,20 @@ func NewBookingService(bookingRepo bookingRepository.BookingRepository, roomRepo
 }
 
 func (s *BookingService) BookRoom(ctx context.Context, roomNum int, checkInStr, checkOutStr string) error {
+	if roomNum <= 0 {
+		return errors.New("invalid room number")
+	}
+
+	validCheckIn, err := validators.ValidateDate(checkInStr)
+	if err != nil {
+		return fmt.Errorf("invalid check-in date: %w", err)
+	}
+
+	_, err = validators.ValidateCheckoutDate(validCheckIn, checkOutStr)
+	if err != nil {
+		return fmt.Errorf("invalid check-out date: %w", err)
+	}
+
 	rooms, err := s.roomRepo.GetAllRooms()
 	if err != nil {
 		return err
@@ -45,15 +61,6 @@ func (s *BookingService) BookRoom(ctx context.Context, roomNum int, checkInStr, 
 		return errors.New("room not available")
 	}
 
-	checkIn, err := time.Parse("02-01-2006", checkInStr)
-	if err != nil {
-		return errors.New("invalid check-in date")
-	}
-	checkOut, err := time.Parse("02-01-2006", checkOutStr)
-	if err != nil {
-		return errors.New("invalid check-out date")
-	}
-
 	bookings, err := s.bookingRepo.GetAllBookings()
 	if err != nil {
 		return err
@@ -64,13 +71,16 @@ func (s *BookingService) BookRoom(ctx context.Context, roomNum int, checkInStr, 
 		return fmt.Errorf("invalid or missing user ID in context")
 	}
 
+	layout := "02-01-2006"
+	checkInTime, _ := time.Parse(layout, validCheckIn)
+	checkOutTime, _ := time.Parse(layout, checkOutStr)
 	newBooking := models.Booking{
 		ID:       utils.NewUUID(),
 		UserID:   userID,
 		RoomID:   selected.ID,
 		RoomNum:  selected.Number,
-		CheckIn:  checkIn,
-		CheckOut: checkOut,
+		CheckIn:  checkInTime,
+		CheckOut: checkOutTime,
 		Status:   models.BookingStatusBooked,
 	}
 	bookings = append(bookings, newBooking)

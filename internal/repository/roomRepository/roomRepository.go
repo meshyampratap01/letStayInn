@@ -1,8 +1,8 @@
 package roomRepository
 
-
 import (
 	"fmt"
+
 	"github.com/meshyampratap01/letStayInn/internal/models"
 	"gorm.io/gorm"
 )
@@ -28,6 +28,10 @@ func (r *GormRoomRepository) SaveRooms(rooms []models.Room) error {
 		}
 	}
 	return nil
+}
+
+func (r *GormRoomRepository) DeleteRoomByNumber(number int) error {
+	return r.db.Where("number = ?", number).Delete(&models.Room{}).Error
 }
 
 func (r *GormRoomRepository) GetAvailableRooms() ([]models.Room, error) {

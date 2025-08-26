@@ -1,17 +1,18 @@
 package handlers
 
 import (
-	"context"
-	"fmt"
+	"encoding/json"
+	"net/http"
 	"strings"
 
-	"github.com/fatih/color"
-	"github.com/meshyampratap01/letStayInn/internal/config"
+	"github.com/meshyampratap01/letStayInn/internal/logger"
+	"go.uber.org/zap"
+	
+	contextkeys "github.com/meshyampratap01/letStayInn/internal/contextKeys"
+	"github.com/meshyampratap01/letStayInn/internal/dto"
 	"github.com/meshyampratap01/letStayInn/internal/models"
 	"github.com/meshyampratap01/letStayInn/internal/services/bookingService"
 	"github.com/meshyampratap01/letStayInn/internal/services/roomService"
-	"github.com/meshyampratap01/letStayInn/internal/utils"
-	"github.com/meshyampratap01/letStayInn/internal/validators"
 )
 
 type BookingHandler struct {
@@ -28,233 +29,138 @@ func NewBookingHandler(
 		roomService:    roomService,
 	}
 }
-
-func (h *BookingHandler) ViewRoomsHandler() {
-	rooms, err := h.roomService.GetAvailableRooms()
-	if err != nil {
-		color.Red(config.MsgErrorFindingRooms, err)
-		utils.AddBackButton()
-		return
-	}
-
-	if len(rooms) == 0 {
-		color.Yellow("No available rooms found.")
-		utils.AddBackButton()
-		return
-	}
-
-	color.Cyan(config.TitleAvailableRooms)
-
-	fmt.Println(strings.Repeat("-", 80))
-	fmt.Printf("%-10s %-12s %-10s %-15s %s\n",
-		"Room No", "Type", "Price(Rs)", "Availability", "Description")
-	fmt.Println(strings.Repeat("-", 80))
-
-	for _, r := range rooms {
-		availability := "Available"
-		if !r.IsAvailable {
-			availability = "Occupied"
+// GET /api/v1/rooms (returns all rooms for manager, only available rooms for others)
+func (h *BookingHandler) GetRoomsByRoleHTTP(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	roleVal := ctx.Value(contextkeys.UserRoleKey)
+	roleStr, _ := roleVal.(string)
+	var rooms []models.Room
+	var err error
+	if roleStr == "Manager" {
+		available := r.URL.Query().Get("available")
+		if strings.ToLower(available) == "true" {
+			rooms, err = h.roomService.GetAvailableRooms()
+		} else {
+			rooms, err = h.roomService.GetAllRooms()
 		}
-
-		fmt.Printf("%-10d %-12s %-10.2f %-15s %s\n",
-			r.Number,
-			r.Type,
-			r.Price,
-			availability,
-			utils.TruncateString(r.Description, 30))
-	}
-
-	fmt.Println(strings.Repeat("-", 80))
-	utils.AddBackButton()
-}
-
-func (h *BookingHandler) BookRoomHandler(ctx context.Context) {
-	color.Cyan(config.TitleBookRoom)
-	rooms, err := h.roomService.GetAvailableRooms()
-	if err != nil {
-		color.Red(config.MsgErrorFindingRooms, err)
-		utils.AddBackButton()
-		return
-	}
-	if len(rooms) == 0 {
-		color.Yellow(config.MsgNoAvailableRooms)
-		utils.AddBackButton()
-		return
-	}
-
-	fmt.Println(strings.Repeat("-", 80))
-	fmt.Printf("%-10s %-15s %-12s %-20s %-30s\n",
-		"Room No", "Type", "Price (Rs)", "Availability", "Description")
-	fmt.Println(strings.Repeat("-", 80))
-
-	for _, r := range rooms {
-		availability := color.GreenString("Available")
-		if !r.IsAvailable {
-			availability = color.RedString("Occupied")
-		}
-
-		fmt.Printf("%-10d %-15s %-12.2f %-28s %-30s\n",
-			r.Number,
-			r.Type,
-			r.Price,
-			availability,
-			utils.TruncateString(r.Description, 30),
-		)
-	}
-
-	fmt.Println(strings.Repeat("-", 80))
-
-	var roomNum int
-	fmt.Print(color.HiWhiteString(config.MsgEnterRoomNumber))
-	fmt.Scanln(&roomNum)
-
-	var checkInDateStr, checkOutDateStr string
-	var checkIn, checkOut string
-
-	for {
-		fmt.Print(color.HiWhiteString("Enter check-in date (DD-MM-YYYY): "))
-		fmt.Scanln(&checkInDateStr)
-		parsed, err := validators.ValidateDate(checkInDateStr)
-		if err != nil {
-			color.Red(config.MsgInvalidCheckInDate, err)
-			continue
-		}
-		checkIn = parsed
-		break
-	}
-
-	for {
-		fmt.Print(color.HiWhiteString("Enter check-out date (DD-MM-YYYY): "))
-		fmt.Scanln(&checkOutDateStr)
-		parsed, err := validators.ValidateCheckoutDate(checkIn, checkOutDateStr)
-		if err != nil {
-			color.Red(config.MsgInvalidCheckOutDate, err)
-			continue
-		}
-		checkOut = parsed
-		break
-	}
-
-	err = h.bookingService.BookRoom(ctx, roomNum, checkIn, checkOut)
-	if err != nil {
-		color.Red(config.MsgBookingFailed, err)
 	} else {
-		color.Green(config.MsgBookingSuccess)
+		rooms, err = h.roomService.GetAvailableRooms()
 	}
-	utils.AddBackButton()
+	if err != nil {
+		logger.Log.Error("Failed to fetch rooms", zap.Error(err))
+		http.Error(w, "Failed to fetch rooms", http.StatusInternalServerError)
+		return
+	}
+	logger.Log.Info("Rooms fetched", zap.String("role", roleStr), zap.Int("count", len(rooms)))
+	resp := make([]dto.RoomDTO, 0, len(rooms))
+	for _, r := range rooms {
+		resp = append(resp, dto.RoomDTO{
+			Number:      r.Number,
+			Type:        string(r.Type),
+			Price:       r.Price,
+			IsAvailable: r.IsAvailable,
+			Description: r.Description,
+		})
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(resp)
 }
 
-func (h *BookingHandler) CancelBookingHandler(ctx context.Context) {
-	color.Cyan(config.TitleCancelBooking)
-
-	bookings, err := h.bookingService.GetUserActiveBookings(ctx)
+// POST /api/v1/bookings
+func (h *BookingHandler) BookRoomHTTP(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		RoomNumber   int    `json:"room_number"`
+		CheckInDate  string `json:"check_in_date"`
+		CheckOutDate string `json:"check_out_date"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		logger.Log.Error("Invalid booking request body", zap.Error(err))
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	ctx := r.Context()
+	userIDVal := ctx.Value(contextkeys.UserIDKey)
+	userID, ok := userIDVal.(string)
+	if !ok || userID == "" {
+		http.Error(w, "User ID not found in context", http.StatusUnauthorized)
+		return
+	}
+	if req.RoomNumber <= 0 || req.CheckInDate == "" || req.CheckOutDate == "" {
+		logger.Log.Warn("Invalid booking request", zap.Any("request", req))
+		http.Error(w, "Invalid booking request", http.StatusBadRequest)
+		return
+	}
+	err := h.bookingService.BookRoom(ctx, req.RoomNumber, req.CheckInDate, req.CheckOutDate)
 	if err != nil {
-		color.Red(config.MsgFailedFetchBookings, err)
-		utils.AddBackButton()
+		logger.Log.Error("Failed to book room", zap.Error(err), zap.String("userID", userID))
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	logger.Log.Info("Room booked successfully", zap.String("userID", userID), zap.Int("roomNumber", req.RoomNumber))
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(map[string]string{"message": "Room booked successfully"})
+}
 
-	if len(bookings) == 0 {
-		color.Yellow(config.MsgNoBookingsToCancel)
-		utils.AddBackButton()
-		return
-	}
-
-	color.Cyan("\nYour Active Bookings:\n")
-	for i, b := range bookings {
-		fmt.Println(strings.Repeat("-", 50))
-		color.Yellow("%d) Room %d", i+1, b.RoomNum)
-		fmt.Printf("   Check-in : %s\n", b.CheckIn.Format("02 Jan 2006"))
-		fmt.Printf("   Check-out: %s\n", b.CheckOut.Format("02 Jan 2006"))
-		fmt.Printf("   Status   : %s\n", b.Status)
-	}
-
-	fmt.Println(strings.Repeat("-", 50))
-	var choice int
-	fmt.Print(color.HiWhiteString(config.MsgEnterBookingToCancel))
-	fmt.Scanln(&choice)
-
-	if choice < 1 || choice > len(bookings) {
-		color.Red(config.MsgInvalidChoice)
-		utils.AddBackButton()
-		return
-	}
-
-	selectedBooking := bookings[choice-1]
-
-	fmt.Printf("\nAre you sure you want to cancel booking for Room %d (Check-in: %s, Check-out: %s)?\n",
-		selectedBooking.RoomNum,
-		selectedBooking.CheckIn.Format("02 Jan 2006"),
-		selectedBooking.CheckOut.Format("02 Jan 2006"),
-	)
-	fmt.Println("1) Yes, cancel it")
-	fmt.Println("2) No, keep booking")
-
-	var confirmChoice int
-	fmt.Print(color.HiWhiteString("Enter your choice: "))
-	fmt.Scanln(&confirmChoice)
-
-	if confirmChoice != 1 {
-		color.Yellow("Cancellation aborted. Your booking remains active.")
-		utils.AddBackButton()
-		return
-	}
-
-	err = h.bookingService.CancelBooking(ctx, selectedBooking.ID)
-	if err != nil {
-		color.Red(config.MsgCancelFailed, err)
+// GET /api/v1/bookings (returns all bookings for manager, user bookings for others)
+func (h *BookingHandler) GetBookingsByRoleHTTP(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	roleVal := ctx.Value(contextkeys.UserRoleKey)
+	roleStr, _ := roleVal.(string)
+	var bookings []models.Booking
+	var err error
+	if roleStr == "Manager" {
+		bookings, err = h.bookingService.GetActiveBookings()
 	} else {
-		color.Green(config.MsgCancelSuccess)
+		bookings, err = h.bookingService.GetUserActiveBookings(ctx)
 	}
-	utils.AddBackButton()
-}
-
-func (h *BookingHandler) ViewMyBookingsHandler(ctx context.Context) {
-	fmt.Println("\n" + config.TitleMyBookings)
-	bookings, err := h.bookingService.GetUserActiveBookings(ctx)
 	if err != nil {
-		fmt.Println("Failed to fetch bookings:", err)
-		utils.AddBackButton()
+		logger.Log.Error("Failed to fetch bookings", zap.Error(err))
+		http.Error(w, "Failed to fetch bookings", http.StatusInternalServerError)
 		return
 	}
+	logger.Log.Info("Bookings fetched", zap.String("role", roleStr), zap.Int("count", len(bookings)))
+	resp := make([]dto.BookingDTO, 0, len(bookings))
+	for _, b := range bookings {
+		resp = append(resp, dto.BookingDTO{
+			ID:         b.ID,
+			RoomNumber: b.RoomNum,
+			Status:     b.Status,
+			CheckIn:    b.CheckIn.Format("2006-01-02"),
+			CheckOut:   b.CheckOut.Format("2006-01-02"),
+		})
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(resp)
+}
 
-	if len(bookings) == 0 {
-		fmt.Println("No bookings found.")
-		utils.AddBackButton()
+// DELETE /api/v1/bookings/{id}
+func (h *BookingHandler) CancelBookingHTTP(w http.ResponseWriter, r *http.Request) {
+	// Extract booking ID from URL
+	idStr := strings.TrimPrefix(r.URL.Path, "/api/v1/bookings/")
+	if idStr == "" {
+		http.Error(w, "Booking ID required", http.StatusBadRequest)
 		return
 	}
-
-	for i, b := range bookings {
-		roomType := "Unknown"
-		room, err := h.bookingService.GetRoomByNumber(b.RoomNum)
-		if err == nil && room != nil {
-			roomType = string(room.Type)
-		}
-		fmt.Println("---------------------------------------")
-		fmt.Printf(" Booking #%d\n", i+1)
-		fmt.Println("---------------------------------------")
-		fmt.Printf(" Room Number : %d\n", b.RoomNum)
-		fmt.Printf(" Room Type   : %s\n", roomType)
-		fmt.Printf(" Check-in    : %s\n", b.CheckIn.Format("02 Jan 2006, 15:04"))
-		fmt.Printf(" Check-out   : %s\n", b.CheckOut.Format("02 Jan 2006, 15:04"))
-		fmt.Printf(" Status      : %s\n", statusLabel(b.Status))
-		fmt.Printf(" Food Req    : %s\n", utils.BoolToIcon(b.FoodReq, "Yes", "No"))
-		fmt.Printf(" Cleaning    : %s\n", utils.BoolToIcon(b.CleanReq, "Yes", "No"))
-		fmt.Printf(" Booked On   : %s\n", b.CreatedAt.Format("02 Jan 2006, 15:04"))
+	ctx := r.Context()
+	userIDVal := ctx.Value(contextkeys.UserIDKey)
+	userID, ok := userIDVal.(string)
+	if !ok || userID == "" {
+		http.Error(w, "User ID not found in context", http.StatusUnauthorized)
+		return
 	}
-
-	fmt.Println("---------------------------------------")
-	utils.AddBackButton()
-}
-func statusLabel(status string) string {
-	switch status {
-	case models.BookingStatusBooked:
-		return "Booked"
-	case models.BookingStatusCancelled:
-		return "Cancelled"
-	case models.BookingStatusCompleted:
-		return "Completed"
-	default:
-		return status
+	bookingID := strings.TrimSpace(idStr)
+	if bookingID == "" {
+		http.Error(w, "Invalid booking ID", http.StatusBadRequest)
+		return
 	}
+	err := h.bookingService.CancelBooking(ctx, bookingID)
+	if err != nil {
+		logger.Log.Error("Failed to cancel booking", zap.Error(err), zap.String("userID", userID), zap.String("bookingID", bookingID))
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	logger.Log.Info("Booking cancelled successfully", zap.String("userID", userID), zap.String("bookingID", bookingID))
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"message": "Booking cancelled successfully"})
 }
+

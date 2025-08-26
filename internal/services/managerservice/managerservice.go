@@ -160,30 +160,30 @@ func (s *ManagerService) AssignServiceRequest(reqID string, empID string) error 
 	return s.serviceRequestRepo.UpdateServiceRequest(req)
 }
 
-func (s *ManagerService) PrintHotelReport() error {
+func (s *ManagerService) GetHotelReport() (*models.HotelReport, error) {
 	rooms, err := s.roomRepo.GetAllRooms()
 	if err != nil {
-		return fmt.Errorf("error fetching rooms: %v", err)
+		return nil, fmt.Errorf("error fetching rooms: %v", err)
 	}
 
 	availableRooms, err := s.roomRepo.GetAvailableRooms()
 	if err != nil {
-		return fmt.Errorf("error fetching available rooms: %v", err)
+		return nil, fmt.Errorf("error fetching available rooms: %v", err)
 	}
 
 	employees, err := s.GetAllEmployees()
 	if err != nil {
-		return fmt.Errorf("error fetching employees: %v", err)
+		return nil, fmt.Errorf("error fetching employees: %v", err)
 	}
 
 	bookings, err := s.bookingRepo.GetAllBookings()
 	if err != nil {
-		return fmt.Errorf("error fetching bookings: %v", err)
+		return nil, fmt.Errorf("error fetching bookings: %v", err)
 	}
 
 	serviceRequests, err := s.serviceRequestRepo.LoadServiceRequests()
 	if err != nil {
-		return fmt.Errorf("error fetching service requests: %v", err)
+		return nil, fmt.Errorf("error fetching service requests: %v", err)
 	}
 
 	unassignedRequests := 0
@@ -198,23 +198,15 @@ func (s *ManagerService) PrintHotelReport() error {
 		requestStatusSummary[req.Status]++
 	}
 
-	fmt.Println("\n--- Hotel Report ---")
-	fmt.Printf("Total Rooms: %d\n", len(rooms))
-	fmt.Printf("Available Rooms: %d\n", len(availableRooms))
-	fmt.Printf("Total Staff: %d\n", len(employees))
-	fmt.Printf("Total Bookings: %d\n", len(bookings))
-	fmt.Printf("Unassigned Service Requests: %d\n", unassignedRequests)
-
-	fmt.Println("\n--- Service Request Summary ---")
-	if len(requestStatusSummary) == 0 {
-		fmt.Println("No Service Requests to show.")
-	} else {
-		for status, count := range requestStatusSummary {
-			fmt.Printf("%s: %d\n", status, count)
-		}
+	report := &models.HotelReport{
+		TotalRooms:            len(rooms),
+		AvailableRooms:        len(availableRooms),
+		TotalStaff:            len(employees),
+		TotalBookings:         len(bookings),
+		UnassignedRequests:    unassignedRequests,
+		ServiceRequestSummary: requestStatusSummary,
 	}
-
-	return nil
+	return report, nil
 }
 
 func (ms *ManagerService) ViewAllFeedback() ([]models.Feedback, error) {

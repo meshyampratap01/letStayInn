@@ -1,16 +1,166 @@
 package handlers
 
 import (
-	"bufio"
-	"fmt"
-	"os"
-	"strconv"
-	"strings"
+	"encoding/json"
+	"net/http"
 
-	"github.com/fatih/color"
+	contextkeys "github.com/meshyampratap01/letStayInn/internal/contextKeys"
+	"github.com/meshyampratap01/letStayInn/internal/dto"
+	"github.com/meshyampratap01/letStayInn/internal/logger"
 	"github.com/meshyampratap01/letStayInn/internal/models"
 	"github.com/meshyampratap01/letStayInn/internal/services/employeeService"
+	"go.uber.org/zap"
 )
+
+// GET /api/v1/employee/service-requests
+func (eh *EmployeeHandler) ViewAssignedServiceRequestsHTTP(w http.ResponseWriter, r *http.Request) {
+	roleVal := r.Context().Value(contextkeys.UserRoleKey)
+	role, ok := roleVal.(string)
+	if !ok {
+		logger.Log.Error("Unauthorized: invalid role in context", zap.Any("context", r.Context()))
+		http.Error(w, "Unauthorized: invalid role in context", http.StatusUnauthorized)
+		return
+	}
+	userIDVal := r.Context().Value(contextkeys.UserIDKey)
+	userID, ok := userIDVal.(string)
+	if !ok {
+		logger.Log.Error("Unauthorized: invalid user ID in context", zap.Any("context", r.Context()))
+		http.Error(w, "Unauthorized: invalid user ID in context", http.StatusUnauthorized)
+		return
+	}
+	if role != "KitchenStaff" && role != "CleaningStaff" {
+		logger.Log.Warn("Forbidden: employee access required", zap.String("role", role))
+		http.Error(w, "Forbidden: employee access required", http.StatusForbidden)
+		return
+	}
+	requests, err := eh.employeeService.GetAssignedServiceRequests(userID)
+	if err != nil {
+		logger.Log.Error("Failed to fetch assigned service requests", zap.Error(err), zap.String("userID", userID))
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	logger.Log.Info("Assigned service requests fetched", zap.String("userID", userID), zap.Int("count", len(requests)))
+	resp := make([]dto.ServiceRequestDTO, 0, len(requests))
+	for _, sr := range requests {
+		resp = append(resp, dto.ServiceRequestDTO{
+			ID:         sr.ID,
+			RoomNum:    sr.RoomNum,
+			Type:       string(sr.Type),
+			Details:    sr.Details,
+			Status:     string(sr.Status),
+			EmployeeID: sr.AssignedTo,
+			IsAssigned: sr.IsAssigned,
+			CreatedAt:  sr.CreatedAt.Format("2006-01-02 15:04:05"),
+		})
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(resp)
+}
+
+// PUT /api/v1/employee/service-requests/{serviceRequestId}/status
+func (eh *EmployeeHandler) UpdateServiceRequestStatusHTTP(w http.ResponseWriter, r *http.Request) {
+	roleVal := r.Context().Value(contextkeys.UserRoleKey)
+	role, ok := roleVal.(string)
+	if !ok {
+		logger.Log.Error("Unauthorized: invalid role in context", zap.Any("context", r.Context()))
+		http.Error(w, "Unauthorized: invalid role in context", http.StatusUnauthorized)
+		return
+	}
+	userIDVal := r.Context().Value(contextkeys.UserIDKey)
+	userID, ok := userIDVal.(string)
+	if !ok {
+		logger.Log.Error("Unauthorized: invalid user ID in context", zap.Any("context", r.Context()))
+		http.Error(w, "Unauthorized: invalid user ID in context", http.StatusUnauthorized)
+		return
+	}
+	if role != "KitchenStaff" && role != "CleaningStaff" {
+		logger.Log.Warn("Forbidden: employee access required", zap.String("role", role))
+		http.Error(w, "Forbidden: employee access required", http.StatusForbidden)
+		return
+	}
+	reqID := r.PathValue("serviceRequestId")
+	if reqID == "" {
+		logger.Log.Error("Missing service request id for status update")
+		http.Error(w, "Missing service request id", http.StatusBadRequest)
+		return
+	}
+	var req struct {
+		Status string `json:"status"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		logger.Log.Error("Invalid request body for service request status update", zap.Error(err))
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	var newStatus models.ServiceStatus
+	switch req.Status {
+	case string(models.ServiceStatusPending), string(models.ServiceStatusInProgress), string(models.ServiceStatusDone):
+		newStatus = models.ServiceStatus(req.Status)
+	default:
+		logger.Log.Warn("Invalid status for service request", zap.String("status", req.Status))
+		http.Error(w, "Invalid status", http.StatusBadRequest)
+		return
+	}
+	assignedRequests, err := eh.employeeService.GetAssignedServiceRequests(userID)
+	if err != nil {
+		logger.Log.Error("Failed to fetch assigned service requests for status update", zap.Error(err), zap.String("userID", userID))
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	found := false
+	for _, sr := range assignedRequests {
+		if sr.ID == reqID {
+			found = true
+			break
+		}
+	}
+	if !found {
+		logger.Log.Warn("Service request not assigned to employee", zap.String("userID", userID), zap.String("serviceRequestId", reqID))
+		http.Error(w, "Service request not assigned to you", http.StatusForbidden)
+		return
+	}
+	err = eh.employeeService.UpdateServiceRequestStatus(reqID, newStatus)
+	if err != nil {
+		logger.Log.Error("Failed to update service request status", zap.Error(err), zap.String("serviceRequestId", reqID))
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	logger.Log.Info("Service request status updated", zap.String("serviceRequestId", reqID), zap.String("userID", userID), zap.String("status", req.Status))
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"message": "Service request status updated"})
+}
+
+// PUT /api/v1/employee/availability
+func (eh *EmployeeHandler) ToggleAvailabilityHTTP(w http.ResponseWriter, r *http.Request) {
+	roleVal := r.Context().Value(contextkeys.UserRoleKey)
+	role, ok := roleVal.(string)
+	if !ok {
+		logger.Log.Error("Unauthorized: invalid role in context", zap.Any("context", r.Context()))
+		http.Error(w, "Unauthorized: invalid role in context", http.StatusUnauthorized)
+		return
+	}
+	userIDVal := r.Context().Value(contextkeys.UserIDKey)
+	userID, ok := userIDVal.(string)
+	if !ok {
+		logger.Log.Error("Unauthorized: invalid user ID in context", zap.Any("context", r.Context()))
+		http.Error(w, "Unauthorized: invalid user ID in context", http.StatusUnauthorized)
+		return
+	}
+	if role != "KitchenStaff" && role != "CleaningStaff" {
+		logger.Log.Warn("Forbidden: employee access required", zap.String("role", role))
+		http.Error(w, "Forbidden: employee access required", http.StatusForbidden)
+		return
+	}
+	err := eh.employeeService.ToggleAvailability(userID)
+	if err != nil {
+		logger.Log.Error("Failed to toggle availability", zap.Error(err), zap.String("userID", userID))
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	logger.Log.Info("Employee availability toggled", zap.String("userID", userID))
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"message": "Availability toggled"})
+}
 
 type EmployeeHandler struct {
 	employeeService employeeService.IEmployeeService
@@ -21,143 +171,3 @@ func NewEmployeeHandler(employeeService employeeService.IEmployeeService) *Emplo
 		employeeService: employeeService,
 	}
 }
-
-func (eh *EmployeeHandler) ViewAssignedServiceRequests(employeeID string) error {
-	requests, err := eh.employeeService.GetAssignedServiceRequests(employeeID)
-	if err != nil {
-		return fmt.Errorf("error fetching assigned requests: %v", err)
-	}
-
-	if len(requests) == 0 {
-		color.Yellow("No service requests assigned.")
-		return nil
-	}
-
-	color.Cyan("\n--- Assigned Service Requests ---\n")
-	fmt.Printf("%-5s %-15s %-12s %-15s %-30s\n",
-		"No", "Type", "Room No", "Status", "Details")
-	fmt.Println(strings.Repeat("-", 80))
-
-	for i, req := range requests {
-		roomNum:=req.RoomNum
-
-		fmt.Printf("%-5d %-15s %-12d %-15s %-30s\n",
-			i+1,
-			req.Type,
-			roomNum,
-			req.Status,
-			req.Details,
-		)
-	}
-	return nil
-}
-
-
-func (eh *EmployeeHandler) UpdateServiceRequestStatus(employeeID string) error {
-	requests, err := eh.employeeService.GetAssignedServiceRequests(employeeID)
-	if err != nil {
-		return fmt.Errorf("error fetching service requests: %w", err)
-	}
-
-	if len(requests) == 0 {
-		color.Yellow("No service requests assigned.")
-		return nil
-	}
-
-	color.Cyan("\n--- Your Assigned Service Requests ---\n")
-	fmt.Printf("%-5s %-15s %-12s %-15s %-30s\n",
-		"No", "Type", "Room No", "Status", "Details")
-	fmt.Println(strings.Repeat("-", 80))
-
-	for i, req := range requests {
-		roomNum, err := eh.employeeService.GetRoomNumberByBookingID(req.BookingID)
-		if err != nil {
-			roomNum = color.RedString("Unknown")
-		}
-
-		fmt.Printf("%-5d %-15s %-12s %-15s %-30s\n",
-			i+1,
-			req.Type,
-			roomNum,
-			req.Status,
-			req.Details,
-		)
-	}
-
-	reader := bufio.NewReader(os.Stdin)
-	fmt.Print(color.YellowString("\nEnter the number of the request you want to update: "))
-	choiceStr, _ := reader.ReadString('\n')
-	choiceStr = strings.TrimSpace(choiceStr)
-	choice, err := strconv.Atoi(choiceStr)
-	if err != nil || choice < 1 || choice > len(requests) {
-		return fmt.Errorf("invalid request selection")
-	}
-
-	selectedRequest := requests[choice-1]
-
-	fmt.Println(color.YellowString("\nSelect New Status:"))
-	fmt.Println("1. Pending")
-	fmt.Println("2. InProgress")
-	fmt.Println("3. Done")
-
-	fmt.Print(color.YellowString("Enter choice (1-3): "))
-	statusChoice, _ := reader.ReadString('\n')
-	statusChoice = strings.TrimSpace(statusChoice)
-
-	var newStatus models.ServiceStatus
-	switch statusChoice {
-	case "1":
-		newStatus = models.ServiceStatusPending
-	case "2":
-		newStatus = models.ServiceStatusInProgress
-	case "3":
-		newStatus = models.ServiceStatusDone
-	default:
-		return fmt.Errorf("invalid status choice")
-	}
-
-	if err := eh.employeeService.UpdateServiceRequestStatus(selectedRequest.ID, newStatus); err != nil {
-		return fmt.Errorf("error updating request status: %w", err)
-	}
-
-	color.Green("Service request status updated successfully.")
-	return nil
-}
-
-
-func (eh *EmployeeHandler) ToggleAvailability(userID string) error {
-	available, err := eh.employeeService.GetAvailability(userID)
-	if err != nil {
-		return fmt.Errorf("error retrieving availability: %w", err)
-	}
-
-	status := color.RedString("Unavailable")
-	if available {
-		status = color.GreenString("Available")
-	}
-	color.Cyan("\n--- Toggle Availability ---")
-	fmt.Println("Current status:", status)
-
-	reader := bufio.NewReader(os.Stdin)
-	fmt.Print(color.YellowString("Do you want to toggle your availability? (y/n): "))
-	confirm, _ := reader.ReadString('\n')
-	confirm = strings.TrimSpace(strings.ToLower(confirm))
-
-	if confirm != "y" {
-		color.Yellow("No changes made.")
-		return nil
-	}
-
-	if err := eh.employeeService.ToggleAvailability(userID); err != nil {
-		return fmt.Errorf("error toggling availability: %w", err)
-	}
-
-	newStatus := color.RedString("Unavailable")
-	if !available {
-		newStatus = color.GreenString("Available")
-	}
-	color.Green("Availability toggled successfully. New status: %s", newStatus)
-
-	return nil
-}
-

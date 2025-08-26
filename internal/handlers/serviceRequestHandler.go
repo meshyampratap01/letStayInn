@@ -1,17 +1,82 @@
 package handlers
 
 import (
-	"bufio"
 	"context"
-	"fmt"
-	"os"
-	"strings"
+	"encoding/json"
+	"net/http"
 
-	"github.com/fatih/color"
+	"go.uber.org/zap"
+
+	contextkeys "github.com/meshyampratap01/letStayInn/internal/contextKeys"
+	"github.com/meshyampratap01/letStayInn/internal/logger"
 	"github.com/meshyampratap01/letStayInn/internal/models"
 	"github.com/meshyampratap01/letStayInn/internal/services/bookingService"
 	serviceRequest "github.com/meshyampratap01/letStayInn/internal/services/servicerequest"
 )
+
+// POST /api/v1/service-requests
+func (s *ServiceRequestHandler) SubmitServiceRequestHTTP(w http.ResponseWriter, r *http.Request) {
+	roleVal := r.Context().Value(contextkeys.UserRoleKey)
+	role, ok := roleVal.(string)
+	if !ok {
+		logger.Log.Error("Unauthorized: invalid role in context", zap.Any("context", r.Context()))
+		http.Error(w, "Unauthorized: invalid role in context", http.StatusUnauthorized)
+		return
+	}
+	userIDVal := r.Context().Value(contextkeys.UserIDKey)
+	userID, ok := userIDVal.(string)
+	if !ok {
+		logger.Log.Error("Unauthorized: invalid user ID in context", zap.Any("context", r.Context()))
+		http.Error(w, "Unauthorized: invalid user ID in context", http.StatusUnauthorized)
+		return
+	}
+	if role != "Guest" {
+		logger.Log.Warn("Forbidden: guest access required", zap.String("role", role))
+		http.Error(w, "Forbidden: guest access required", http.StatusForbidden)
+		return
+	}
+	var req struct {
+		RoomNum int    `json:"room_num"`
+		Type    string `json:"type"`
+		Details string `json:"details"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		logger.Log.Error("Invalid request body for service request creation", zap.Error(err))
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	if req.RoomNum <= 0 {
+		logger.Log.Warn("Invalid room number for service request", zap.Int("room_num", req.RoomNum))
+		http.Error(w, "Invalid room number", http.StatusBadRequest)
+		return
+	}
+	if len(req.Details) < 5 {
+		logger.Log.Warn("Service request details too short", zap.String("details", req.Details))
+		http.Error(w, "Details must be at least 5 characters", http.StatusBadRequest)
+		return
+	}
+	var serviceType models.ServiceType
+	switch req.Type {
+	case string(models.ServiceTypeCleaning):
+		serviceType = models.ServiceTypeCleaning
+	case string(models.ServiceTypeFood):
+		serviceType = models.ServiceTypeFood
+	default:
+		logger.Log.Warn("Invalid service type for service request", zap.String("type", req.Type))
+		http.Error(w, "Invalid service type", http.StatusBadRequest)
+		return
+	}
+	ctx := context.WithValue(r.Context(), contextkeys.UserIDKey, userID)
+	err := s.ServiceRequestService.ServiceRequestGetter(ctx, req.RoomNum, serviceType, req.Details)
+	if err != nil {
+		logger.Log.Error("Failed to create service request", zap.Error(err), zap.String("userID", userID))
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	logger.Log.Info("Service request submitted", zap.String("userID", userID), zap.Int("roomNum", req.RoomNum), zap.String("serviceType", req.Type))
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(map[string]string{"message": "Service request submitted"})
+}
 
 type ServiceRequestHandler struct {
 	ServiceRequestService serviceRequest.IServiceRequestService
@@ -24,86 +89,3 @@ func NewServiceRequestHandler(srs serviceRequest.IServiceRequestService, bs book
 		BookingService:        bs,
 	}
 }
-
-func (s *ServiceRequestHandler) ServiceRequestHandler(ctx context.Context, reqType models.ServiceType) {
-	roomNum, err := s.SelectUserRoom(ctx,reqType)
-	if err != nil {
-		color.Red("Error: %v", err)
-		return
-	}
-
-	var details string
-	reader := bufio.NewReader(os.Stdin)
-	fmt.Print("Please describe your service request in detail: ")
-	details, _ = reader.ReadString('\n')
-	details = strings.TrimSpace(details)
-
-	err = s.ServiceRequestService.ServiceRequestGetter(ctx, roomNum, reqType, details)
-	if err != nil {
-		color.Red("Error: %v", err)
-		return
-	}
-
-	color.Green("Your service request has been placed successfully.")
-}
-
-func (s *ServiceRequestHandler) SelectUserRoom(ctx context.Context, reqType models.ServiceType) (int, error) {
-	userRooms, err := s.BookingService.GetUserActiveBookings(ctx)
-	if err != nil {
-		return -1, err
-	}
-
-	if len(userRooms) == 0 {
-		return -1, fmt.Errorf("you have no active bookings")
-	}
-
-	for {
-		color.Cyan("\nSelect a room for your service request:\n")
-		for i, r := range userRooms {
-			color.Yellow("%d) Room %d", i+1, r.RoomNum)
-			fmt.Printf("   Stay: %s → %s\n",
-				r.CheckIn.Format("02 Jan 2006"),
-				r.CheckOut.Format("02 Jan 2006"))
-			fmt.Printf("   Status: %s\n", r.Status)
-
-			if r.FoodReq {
-				color.Green("   • Food service already requested\n")
-			}
-			if r.CleanReq {
-				color.Green("   • Cleaning service already requested\n")
-			}
-			fmt.Println()
-		}
-
-		fmt.Print(color.HiWhiteString("Enter your choice (or 0 to cancel): "))
-		var choice int
-		fmt.Scanln(&choice)
-
-		if choice == 0 {
-			return -1, fmt.Errorf("operation cancelled")
-		}
-
-		if choice < 1 || choice > len(userRooms) {
-			color.Red("Invalid selection. Try again.")
-			continue
-		}
-
-		selected := userRooms[choice-1]
-
-		if (reqType == models.ServiceTypeFood && selected.FoodReq) || (reqType == models.ServiceTypeCleaning && selected.CleanReq) {
-			color.Yellow("\n⚠ A %s request already exists for Room %d.", reqType, selected.RoomNum)
-			fmt.Print("Press ENTER to proceed anyway, or type 'r' to reselect another room: ")
-
-			var retry string
-			fmt.Scanln(&retry)
-
-			if retry == "r" {
-				continue 
-			}
-		}
-
-		return selected.RoomNum, nil
-	}
-}
-
-

@@ -9,6 +9,6 @@ type IManagerService interface {
 	DeleteEmployeeByEmail(email string) error
 	GetAvailableStaffByTaskType(string) ([]models.User, error)
 	AssignServiceRequest(reqID string, empID string) error
-	PrintHotelReport() error
+	GetHotelReport() (*models.HotelReport, error)
 	ViewAllFeedback() ([]models.Feedback, error)
 }

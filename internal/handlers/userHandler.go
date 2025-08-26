@@ -1,104 +1,93 @@
 package handlers
 
 import (
-	"bufio"
-	"context"
-	"fmt"
-	"os"
-	"strings"
+	"encoding/json"
+	"net/http"
 
-	"github.com/fatih/color"
+	"go.uber.org/zap"
+
+	"github.com/meshyampratap01/letStayInn/internal/auth"
 	"github.com/meshyampratap01/letStayInn/internal/config"
-	contextkeys "github.com/meshyampratap01/letStayInn/internal/contextKeys"
-	"github.com/meshyampratap01/letStayInn/internal/services/feedbackService"
+	"github.com/meshyampratap01/letStayInn/internal/logger"
+	"github.com/meshyampratap01/letStayInn/internal/models"
 	"github.com/meshyampratap01/letStayInn/internal/services/userService"
-	"github.com/meshyampratap01/letStayInn/internal/utils"
 	"github.com/meshyampratap01/letStayInn/internal/validators"
 )
 
 type UserHandler struct {
-	userService      userService.IUserService
-	DashboardHandler *DashboardHandler
-	feedbackService  feedbackService.IFeedbackService
+	userService userService.IUserService
 }
 
-func NewUserHandler(us userService.IUserService, DashboardHandler *DashboardHandler, fs feedbackService.IFeedbackService) *UserHandler {
+// SignupRequest represents the expected JSON body for signup
+type SignupRequest struct {
+	Name     string `json:"name"`
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
+// LoginRequest represents the expected JSON body for login
+type LoginRequest struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
+// SignupHTTPHandler handles user signup via HTTP (JSON)
+func (u *UserHandler) SignupHTTPHandler(w http.ResponseWriter, r *http.Request) {
+	var req SignupRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		logger.Log.Error("Invalid signup request body", zap.Error(err))
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	if err := validators.ValidateEmail(req.Email); err != nil {
+		logger.Log.Warn("Invalid email during signup", zap.String("email", req.Email))
+		http.Error(w, "Invalid email", http.StatusBadRequest)
+		return
+	}
+	if err := validators.ValidatePassword(req.Password); err != nil {
+		logger.Log.Warn("Invalid password during signup", zap.String("email", req.Email))
+		http.Error(w, "Invalid password", http.StatusBadRequest)
+		return
+	}
+	// Always sign up as Guest
+	msg, err := u.userService.Signup(req.Name, req.Email, req.Password, int(models.RoleGuest))
+	if err != nil {
+		logger.Log.Error("Signup failed", zap.Error(err), zap.String("email", req.Email))
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	logger.Log.Info("User signed up successfully", zap.String("email", req.Email))
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(map[string]string{"message": msg})
+}
+
+// LoginHTTPHandler handles user login via HTTP (JSON)
+func (u *UserHandler) LoginHTTPHandler(w http.ResponseWriter, r *http.Request) {
+	var req LoginRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		logger.Log.Error("Invalid login request body", zap.Error(err))
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	user, err := u.userService.Login(req.Email, req.Password)
+	if err != nil {
+		logger.Log.Warn("Login failed", zap.Error(err), zap.String("email", req.Email))
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+		return
+	}
+	token, err := auth.GenerateJWT(user.ID, user.Name, user.Role.String(), config.JWTExpirationMinute)
+	if err != nil {
+		logger.Log.Error("Failed to generate JWT during login", zap.Error(err), zap.String("userID", user.ID))
+		http.Error(w, "Failed to generate JWT", http.StatusInternalServerError)
+		return
+	}
+	logger.Log.Info("User logged in successfully", zap.String("userID", user.ID), zap.String("email", req.Email))
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"token": token})
+}
+
+func NewUserHandler(us userService.IUserService) *UserHandler {
 	return &UserHandler{
-		userService:      us,
-		DashboardHandler: DashboardHandler,
-		feedbackService:  fs,
+		userService: us,
 	}
-}
-
-func (u *UserHandler) SignupHandler() {
-	reader := bufio.NewReader(os.Stdin)
-
-	color.Cyan(config.SignupMsg)
-	fmt.Print(color.HiWhiteString("Enter name: "))
-	name, _ := reader.ReadString('\n')
-	name = strings.TrimSpace(name)
-
-	var email string
-	for {
-		fmt.Print(color.HiWhiteString("Enter email: "))
-		emailInput, _ := reader.ReadString('\n')
-		email = strings.TrimSpace(emailInput)
-
-		if err := validators.ValidateEmail(email); err != nil {
-			color.Red("Error: %v", err)
-			continue
-		}
-		break
-	}
-
-	var password string
-	for {
-		pass, err := utils.ReadPasswordMasked(color.HiWhiteString("Enter password: "))
-		if err != nil {
-			color.Red("Error reading password: %v", err)
-			continue
-		}
-		password = pass
-		if err := validators.ValidatePassword(password); err != nil {
-			color.Red("Error: %v", err)
-			continue
-		}
-		break
-	}
-
-	roleint := 1
-
-	msg, err := u.userService.Signup(name, email, password, roleint)
-	if err != nil {
-		color.Red("Error: %v", err)
-		return
-	}
-	color.Green(msg)
-}
-
-func (u *UserHandler) LoginHandler() {
-	reader := bufio.NewReader(os.Stdin)
-
-	color.Cyan(config.LoginMsg)
-	fmt.Print(color.HiWhiteString("Enter email: "))
-	email, _ := reader.ReadString('\n')
-
-	password, err := utils.ReadPasswordMasked(color.HiWhiteString("Enter password: "))
-	if err != nil {
-		color.Red("Error reading password: %v", err)
-		return
-	}
-
-	user, err := u.userService.Login(email, password)
-	if err != nil {
-		color.Red("Error: %v", err)
-		return
-	}
-
-	ctx := context.WithValue(context.Background(), contextkeys.UserIDKey, user.ID)
-	ctx = context.WithValue(ctx, contextkeys.UserRoleKey, user.Role)
-	ctx = context.WithValue(ctx, contextkeys.UserNameKey, user.Name)
-
-	color.Green(config.UserWelcome+"%s!", user.Name)
-	u.DashboardHandler.LoadDashboard(ctx)
 }

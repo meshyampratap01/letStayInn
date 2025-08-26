@@ -17,8 +17,17 @@ import (
 	"github.com/meshyampratap01/letStayInn/internal/services/userService"
 )
 
-func InitHandlers() *handlers.UserHandler {
+type AppHandlers struct {
+	UserHandler       *handlers.UserHandler
+	BookingHandler    *handlers.BookingHandler
+	ServiceReqHandler *handlers.ServiceRequestHandler
+	ManagerHandler    *handlers.ManagerHandler
+	EmployeeHandler   *handlers.EmployeeHandler
+	FeedbackHandler   *handlers.FeedbackHandler
+	ProfileHandler    *handlers.ProfileHandler
+}
 
+func InitHandlers() *AppHandlers {
 	userRepo := userRepository.NewGormUserRepository(db.DB)
 	roomRepo := roomRepository.NewGormRoomRepository(db.DB)
 	bookingRepo := bookingRepository.NewGormBookingRepository(db.DB)
@@ -39,8 +48,17 @@ func InitHandlers() *handlers.UserHandler {
 	employeeHandler := handlers.NewEmployeeHandler(employeeSvc)
 	feedbackHandler := handlers.NewFeedbackHandler(feedbackSvc)
 	profileHandler := handlers.NewProfileHandler(userSvc)
-	dashboardHandler := handlers.NewDashboardHandler(roomSvc, bookingSvc, feedbackSvc, serviceReqSvc, bookingHandler, serviceReqHandler, managerHandler, employeeSvc, employeeHandler, feedbackHandler,profileHandler)
 
-	CLIUserHandler := handlers.NewUserHandler(userSvc, dashboardHandler, feedbackSvc)
-	return CLIUserHandler
+
+	userHandler := handlers.NewUserHandler(userSvc)
+
+	return &AppHandlers{
+		UserHandler:       userHandler,
+		BookingHandler:    bookingHandler,
+		ServiceReqHandler: serviceReqHandler,
+		ManagerHandler:    managerHandler,
+		EmployeeHandler:   employeeHandler,
+		FeedbackHandler:   feedbackHandler,
+		ProfileHandler:    profileHandler,
+	}
 }

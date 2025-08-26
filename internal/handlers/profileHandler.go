@@ -1,17 +1,15 @@
 package handlers
 
 import (
-	"bufio"
-	"context"
-	"fmt"
-	"os"
-	"strings"
+	"encoding/json"
+	"net/http"
 
-	"github.com/fatih/color"
 	"github.com/meshyampratap01/letStayInn/internal/auth"
 	contextkeys "github.com/meshyampratap01/letStayInn/internal/contextKeys"
+	"github.com/meshyampratap01/letStayInn/internal/dto"
+	"github.com/meshyampratap01/letStayInn/internal/logger"
 	"github.com/meshyampratap01/letStayInn/internal/services/userService"
-	"github.com/meshyampratap01/letStayInn/internal/validators"
+	"go.uber.org/zap"
 )
 
 type ProfileHandler struct {
@@ -24,102 +22,92 @@ func NewProfileHandler(userService userService.IUserService) *ProfileHandler {
 	}
 }
 
-func (h *ProfileHandler) ViewProfile(ctx context.Context) {
-	userID, ok := ctx.Value(contextkeys.UserIDKey).(string)
-	if !ok {
-		color.Red("User ID not found in context.")
+// GET /api/v1/profile
+func (h *ProfileHandler) ViewProfileHTTP(w http.ResponseWriter, r *http.Request) {
+	userIDVal := r.Context().Value(contextkeys.UserIDKey)
+	userID, ok := userIDVal.(string)
+	if !ok || userID == "" {
+		logger.Log.Error("User ID not found in context", zap.Any("context", r.Context()))
+		http.Error(w, "User ID not found in context", http.StatusUnauthorized)
 		return
 	}
 	user, err := h.userService.GetUserByID(userID)
 	if err != nil {
-		color.Red("Error fetching user profile: %v", err)
+		logger.Log.Error("Error fetching user profile", zap.String("userID", userID), zap.Error(err))
+		http.Error(w, "Error fetching user profile", http.StatusInternalServerError)
 		return
 	}
-	color.Cyan("\n--- Your Profile ---")
-	fmt.Printf("Name: %s\nEmail: %s\nRole: %s\n", user.Name, user.Email, user.Role.String())
+	logger.Log.Info("User profile fetched", zap.String("userID", userID))
+	resp := dto.UserProfileDTO{
+		ID:        user.ID,
+		Name:      user.Name,
+		Email:     user.Email,
+		Role:      user.Role.String(),
+		Available: user.Available,
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(resp)
 }
 
-func (h *ProfileHandler) UpdateProfile(ctx context.Context) {
-	userID, ok := ctx.Value(contextkeys.UserIDKey).(string)
-	if !ok {
-		color.Red("User ID not found in context.")
+// PUT /api/v1/profile
+func (h *ProfileHandler) UpdateProfileHTTP(w http.ResponseWriter, r *http.Request) {
+	userIDVal := r.Context().Value(contextkeys.UserIDKey)
+	userID, ok := userIDVal.(string)
+	if !ok || userID == "" {
+		logger.Log.Error("User ID not found in context", zap.Any("context", r.Context()))
+		http.Error(w, "User ID not found in context", http.StatusUnauthorized)
 		return
 	}
 	user, err := h.userService.GetUserByID(userID)
 	if err != nil {
-		color.Red("Error fetching user profile: %v", err)
+		logger.Log.Error("Error fetching user profile", zap.String("userID", userID), zap.Error(err))
+		http.Error(w, "Error fetching user profile", http.StatusInternalServerError)
 		return
 	}
-	reader := bufio.NewReader(os.Stdin)
-	color.Cyan("\n--- Update Profile ---")
+	var req struct {
+		Name     *string `json:"name,omitempty"`
+		Email    *string `json:"email,omitempty"`
+		Password *string `json:"password,omitempty"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		logger.Log.Error("Invalid request body for profile update", zap.Error(err))
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
 	updated := false
-	for {
-		fmt.Println("What would you like to update?")
-		fmt.Println("1. Name")
-		fmt.Println("2. Email")
-		fmt.Println("3. Password")
-		fmt.Println("4. Done/Cancel")
-		fmt.Print("Enter choice: ")
-		choiceStr, _ := reader.ReadString('\n')
-		choiceStr = strings.TrimSpace(choiceStr)
-		switch choiceStr {
-		case "1":
-			fmt.Printf("Current Name: %s\n", user.Name)
-			fmt.Print("Enter new name (leave blank to keep current): ")
-			name, _ := reader.ReadString('\n')
-			name = strings.TrimSpace(name)
-			if name != "" {
-				user.Name = name
-				updated = true
-				color.Green("Name will be updated.")
-			} else {
-				color.Yellow("Name unchanged.")
-			}
-		case "2":
-			fmt.Printf("Current Email: %s\n", user.Email)
-			fmt.Print("Enter new email (leave blank to keep current): ")
-			email, _ := reader.ReadString('\n')
-			email = strings.TrimSpace(email)
-			if email != "" {
-				user.Email = email
-				updated = true
-				color.Green("Email will be updated.")
-			} else {
-				color.Yellow("Email unchanged.")
-			}
-		case "3":
-			fmt.Print("Enter current password: ")
-			currPwd, _ := reader.ReadString('\n')
-			currPwd = strings.TrimSpace(currPwd)
-			if !auth.CheckPassword(user.Password, currPwd) {
-				color.Red("Current password is incorrect. Password not updated.")
-			} else {
-				fmt.Print("Enter new password: ")
-				newPwd, _ := reader.ReadString('\n')
-				newPwd = strings.TrimSpace(newPwd)
-				if newPwd == "" {
-					color.Red("New password cannot be empty. Password not updated.")
-				} else if err := validators.ValidatePassword(newPwd); err != nil {
-					color.Red("%v. Password not updated.", err)
-				} else {
-					user.Password = auth.HashPassword(newPwd)
-					updated = true
-					color.Green("Password will be updated.")
-				}
-			}
-		case "4":
-			if updated {
-				if err := h.userService.UpdateUser(user); err != nil {
-					color.Red("Error updating profile: %v", err)
-					return
-				}
-				color.Green("Profile updated successfully!")
-			} else {
-				color.Yellow("No changes made to profile.")
-			}
-			return
-		default:
-			color.Red("Invalid choice. Please select a valid option.")
+	if req.Name != nil && len(*req.Name) >= 2 {
+		user.Name = *req.Name
+		updated = true
+	}
+	if req.Email != nil && len(*req.Email) >= 5 && containsAt(*req.Email) {
+		user.Email = *req.Email
+		updated = true
+	}
+	if req.Password != nil && len(*req.Password) >= 6 {
+		user.Password = auth.HashPassword(*req.Password)
+		updated = true
+	}
+	if !updated {
+		logger.Log.Warn("No valid fields to update in profile", zap.String("userID", userID))
+		http.Error(w, "No valid fields to update", http.StatusBadRequest)
+		return
+	}
+	err = h.userService.UpdateUser(user)
+	if err != nil {
+		logger.Log.Error("Error updating profile", zap.String("userID", userID), zap.Error(err))
+		http.Error(w, "Error updating profile", http.StatusInternalServerError)
+		return
+	}
+	logger.Log.Info("Profile updated successfully", zap.String("userID", userID))
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"message": "Profile updated successfully"})
+}
+
+func containsAt(s string) bool {
+	for _, c := range s {
+		if c == '@' {
+			return true
 		}
 	}
+	return false
 }

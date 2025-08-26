@@ -1,3 +1,5 @@
+# Ignore Linux tar files in root
+go*.linux-amd64.tar.gz
 # Binaries
 *.exe
 *.exe~

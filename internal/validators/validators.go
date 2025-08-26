@@ -4,6 +4,8 @@ import (
 	"errors"
 	"regexp"
 	"time"
+
+	"github.com/meshyampratap01/letStayInn/internal/models"
 )
 
 func ValidateEmail(email string) error {
@@ -13,8 +15,6 @@ func ValidateEmail(email string) error {
 	}
 	return nil
 }
-
-
 
 func ValidatePassword(password string) error {
 	if len(password) < 8 {
@@ -36,7 +36,6 @@ func ValidatePassword(password string) error {
 	return nil
 }
 
-
 func ValidateDate(dateStr string) (string, error) {
 	layout := "02-01-2006"
 	parsedDate, err := time.Parse(layout, dateStr)
@@ -51,7 +50,6 @@ func ValidateDate(dateStr string) (string, error) {
 
 	return parsedDate.Format(layout), nil
 }
-
 
 func ValidateCheckoutDate(checkinStr, checkoutStr string) (string, error) {
 	layout := "02-01-2006"
@@ -73,5 +71,14 @@ func ValidateCheckoutDate(checkinStr, checkoutStr string) (string, error) {
 	return checkoutDate.Format(layout), nil
 }
 
-
-
+func IsValidRoomType(rt string) bool {
+	switch models.RoomType(rt) {
+	case models.RoomTypeStandard,
+		models.RoomTypeDeluxe,
+		models.RoomTypeSuite,
+		models.RoomTypeExecutive:
+		return true
+	default:
+		return false
+	}
+}
