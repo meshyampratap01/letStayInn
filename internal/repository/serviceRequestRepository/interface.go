@@ -1,3 +1,4 @@
+//go:generate mockgen -source=interface.go -destination=../../mocks/mock_serviceRequestRepository.go -package=mocks
 package serviceRequestRepository
 
 import "github.com/meshyampratap01/letStayInn/internal/models"
@@ -12,4 +13,3 @@ type ServiceRequestRepository interface {
 	GetAssignedServiceRequests(employeeID string) ([]models.ServiceRequest, error)
 	UpdateIsAssigned(reqID string, isAssigned bool) error
 }
-

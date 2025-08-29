@@ -1,5 +1,3 @@
-# Ignore Linux tar files in root
-go*.linux-amd64.tar.gz
 # Binaries
 *.exe
 *.exe~
@@ -8,6 +6,9 @@ go*.linux-amd64.tar.gz
 *.dylib
 *.test
 
+*.linux-amd64.tar.gz
+
+*.out.tmp
 # Output of build tools
 /dist/
 /build/

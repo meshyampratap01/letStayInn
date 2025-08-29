@@ -1,3 +1,4 @@
+//go:generate mockgen -source=interface.go -destination=../../mocks/mock_roomRepository.go -package=mocks
 package roomRepository
 
 import "github.com/meshyampratap01/letStayInn/internal/models"

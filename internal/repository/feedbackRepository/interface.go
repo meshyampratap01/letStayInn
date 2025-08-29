@@ -1,3 +1,4 @@
+//go:generate mockgen -source=interface.go -destination=../../mocks/mock_feedbackRepository.go -package=mocks
 package feedbackRepository
 
 import "github.com/meshyampratap01/letStayInn/internal/models"

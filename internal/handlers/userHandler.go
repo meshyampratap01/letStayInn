@@ -49,7 +49,7 @@ func (u *UserHandler) SignupHTTPHandler(w http.ResponseWriter, r *http.Request) 
 		http.Error(w, "Invalid password", http.StatusBadRequest)
 		return
 	}
-	// Always sign up as Guest
+
 	msg, err := u.userService.Signup(req.Name, req.Email, req.Password, int(models.RoleGuest))
 	if err != nil {
 		logger.Log.Error("Signup failed", zap.Error(err), zap.String("email", req.Email))

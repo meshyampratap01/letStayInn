@@ -54,7 +54,6 @@ func (r *RoomService) GetAllRooms() ([]models.Room, error) {
 }
 
 func (r *RoomService) AddRoom(number int, roomType string, price float64, isAvailable bool, description string) error {
-	// --- Validation ---
 	if number <= 0 {
 		return ErrInvalidRoomNumber
 	}
@@ -68,7 +67,6 @@ func (r *RoomService) AddRoom(number int, roomType string, price float64, isAvai
 		return ErrEmptyRoomDesc
 	}
 
-	// --- Duplicate check ---
 	exists, err := r.roomRepo.RoomExists(number)
 	if err != nil {
 		return err
@@ -77,7 +75,6 @@ func (r *RoomService) AddRoom(number int, roomType string, price float64, isAvai
 		return ErrDuplicateRoomNumber
 	}
 
-	// --- Create room ---
 	newRoom := models.Room{
 		ID:          utils.NewUUID(),
 		Number:      number,
@@ -90,7 +87,6 @@ func (r *RoomService) AddRoom(number int, roomType string, price float64, isAvai
 }
 
 func (r *RoomService) UpdateRoom(number int, choice int, roomType string, price float64, isAvailable bool, description string) error {
-	// Validate update choice
 	if choice < 1 || choice > 4 {
 		return fmt.Errorf("%w: %d (must be between 1 and 4)", ErrInvalidChoice, choice)
 	}
@@ -104,22 +100,22 @@ func (r *RoomService) UpdateRoom(number int, choice int, roomType string, price 
 	for i, room := range rooms {
 		if room.Number == number {
 			switch choice {
-			case 1: // Update Type
+			case 1: 
 				if roomType == "" {
 					return fmt.Errorf("%w: room type cannot be empty", ErrInvalidInput)
 				}
 				rooms[i].Type = models.RoomType(roomType)
 
-			case 2: // Update Price
+			case 2:
 				if price <= 0 {
 					return fmt.Errorf("%w: price %.2f must be greater than 0", ErrInvalidInput, price)
 				}
 				rooms[i].Price = price
 
-			case 3: // Update Availability
+			case 3: 
 				rooms[i].IsAvailable = isAvailable
 
-			case 4: // Update Description
+			case 4: 
 				if len(description) < 5 {
 					return fmt.Errorf("%w: description must be at least 5 characters long", ErrInvalidInput)
 				}
@@ -134,7 +130,6 @@ func (r *RoomService) UpdateRoom(number int, choice int, roomType string, price 
 		return fmt.Errorf("%w: room number %d", ErrRoomNotFound, number)
 	}
 
-	// Persist changes
 	if err := r.roomRepo.SaveRooms(rooms); err != nil {
 		return fmt.Errorf("%w: %v", ErrPersistenceFailed, err)
 	}

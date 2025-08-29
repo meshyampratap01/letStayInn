@@ -8,14 +8,14 @@ import (
 	"github.com/meshyampratap01/letStayInn/internal/container"
 )
 
-// helper to apply JWTAuth middleware
+
 func withAuth(h http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		auth.JWTAuthMiddleware(h).ServeHTTP(w, r)
 	}
 }
 
-// --- Route Groups ---
+
 func registerUserRoutes(mux *http.ServeMux, prefix string, h *container.AppHandlers) {
 	mux.HandleFunc("POST "+prefix+"signup", h.UserHandler.SignupHTTPHandler)
 	mux.HandleFunc("POST "+prefix+"login", h.UserHandler.LoginHTTPHandler)
@@ -35,8 +35,8 @@ func registerBookingRoutes(mux *http.ServeMux, prefix string, h *container.AppHa
 }
 
 func registerFeedbackRoutes(mux *http.ServeMux, prefix string, h *container.AppHandlers) {
-	mux.HandleFunc("POST "+prefix+"feedback", withAuth(h.FeedbackHandler.SubmitFeedbackHTTP))
-	mux.HandleFunc("GET "+prefix+"feedback", withAuth(h.ManagerHandler.ListAllFeedbackHTTP)) // Use ?all=true for manager
+	mux.HandleFunc("POST "+prefix+"feedbacks", withAuth(h.FeedbackHandler.SubmitFeedbackHTTP))
+	mux.HandleFunc("GET "+prefix+"feedbacks", withAuth(h.ManagerHandler.ListAllFeedbackHTTP)) // Use ?all=true for manager
 }
 
 func registerEmployeeRoutes(mux *http.ServeMux, prefix string, h *container.AppHandlers) {
@@ -62,7 +62,7 @@ func registerProfileRoutes(mux *http.ServeMux, prefix string, h *container.AppHa
 	mux.HandleFunc("PUT "+prefix+"profile", withAuth(h.ProfileHandler.UpdateProfileHTTP))
 }
 
-// --- MAIN ROUTER ---
+
 func NewRouter(handlers *container.AppHandlers) http.Handler {
 	mux := http.NewServeMux()
 	apiPrefix := "/api/v1/"
@@ -78,7 +78,6 @@ func NewRouter(handlers *container.AppHandlers) http.Handler {
 	return mux
 }
 
-// StartServer starts the HTTP server
 func StartServer() {
 	handlers := container.InitHandlers()
 	router := NewRouter(handlers)

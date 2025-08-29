@@ -3,6 +3,7 @@ package userService
 import (
 	"github.com/meshyampratap01/letStayInn/internal/models"
 )
+//go:generate mockgen -source=interface.go -destination=../../mocks/mock_userService.go -package=mocks
 
 type IUserService interface {
 	Signup(name, email, password string, roleint int) (string, error)

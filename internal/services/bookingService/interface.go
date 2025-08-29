@@ -6,6 +6,8 @@ import (
 	"github.com/meshyampratap01/letStayInn/internal/models"
 )
 
+//go:generate mockgen -source=interface.go -destination=../../mocks/mock_bookingService.go -package=mocks
+
 type IBookingService interface {
 	GetRoomByNumber(roomNum int) (*models.Room, error)
 	BookRoom(ctx context.Context, roomNum int, checkInStr, checkOutStr string) error

@@ -1,6 +1,7 @@
 package roomService
 
 import "github.com/meshyampratap01/letStayInn/internal/models"
+//go:generate mockgen -source=interface.go -destination=../../mocks/mock_roomService.go -package=mocks
 
 type IRoomService interface {
 	GetAvailableRooms() ([]models.Room, error)

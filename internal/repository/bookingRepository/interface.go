@@ -1,5 +1,5 @@
+//go:generate mockgen -source=interface.go -destination=../../mocks/mock_bookingRepository.go -package=mocks
 package bookingRepository
-
 
 import "github.com/meshyampratap01/letStayInn/internal/models"
 

@@ -7,7 +7,7 @@ import (
 	"github.com/meshyampratap01/letStayInn/internal/config"
 )
 
-// Claims struct
+
 type Claims struct {
 	UserID   string `json:"user_id"`
 	Username string `json:"username"`
@@ -15,7 +15,7 @@ type Claims struct {
 	jwt.RegisteredClaims
 }
 
-// GenerateJWT generates a JWT for a user
+
 func GenerateJWT(userID, username, role string, expirationMinutes int) (string, error) {
 	expirationTime := time.Now().Add(time.Duration(expirationMinutes) * time.Minute)
 	claims := &Claims{
@@ -30,23 +30,21 @@ func GenerateJWT(userID, username, role string, expirationMinutes int) (string, 
 	return token.SignedString([]byte(config.JWTSecret))
 }
 
-// ValidateJWT parses and validates a JWT
+
 func ValidateJWT(tokenStr string) (*Claims, error) {
 	claims := &Claims{}
 	token, err := jwt.ParseWithClaims(tokenStr, claims, func(token *jwt.Token) (interface{}, error) {
-		// Ensure the signing method is HMAC and specifically HS256
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, jwt.ErrTokenUnverifiable
 		}
 		return []byte(config.JWTSecret), nil
 	})
 	if err != nil {
-		return nil, err // Return the specific error for debugging
+		return nil, err 
 	}
 	if !token.Valid {
 		return nil, jwt.ErrTokenSignatureInvalid
 	}
-	// Check for expiration explicitly
 	if claims.ExpiresAt != nil && claims.ExpiresAt.Time.Before(time.Now()) {
 		return nil, jwt.ErrTokenExpired
 	}

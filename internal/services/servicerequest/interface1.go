@@ -5,6 +5,7 @@ import (
 
 	"github.com/meshyampratap01/letStayInn/internal/models"
 )
+//go:generate mockgen -source=interface1.go -destination=../../mocks/mock_serviceRequestService.go -package=mocks
 
 type IServiceRequestService interface {
 	ServiceRequestGetter(context.Context,int,models.ServiceType,string) error
