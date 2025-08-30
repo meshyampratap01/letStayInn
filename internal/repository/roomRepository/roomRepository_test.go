@@ -102,10 +102,15 @@ func TestDeleteRoomByNumber(t *testing.T) {
 	defer cleanup()
 	repo := NewGormRoomRepository(db)
 
-	// success
+	// success: fetch then delete
+	roomID := "room-uuid"
+	rows := sqlmock.NewRows([]string{"id", "number"}).AddRow(roomID, 101)
+	mock.ExpectQuery(regexp.QuoteMeta(`SELECT * FROM "rooms" WHERE number = $1 AND "rooms"."deleted_at" IS NULL ORDER BY "rooms"."id" LIMIT $2`)).
+		WithArgs(101, 1).
+		WillReturnRows(rows)
 	mock.ExpectBegin()
 	mock.ExpectExec(regexp.QuoteMeta(`UPDATE "rooms" SET "deleted_at"`)).
-		WithArgs(sqlmock.AnyArg(), 101).
+		WithArgs(sqlmock.AnyArg(), roomID).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectCommit()
 
@@ -114,14 +119,11 @@ func TestDeleteRoomByNumber(t *testing.T) {
 		t.Errorf("expected no error, got %v", err)
 	}
 
-	// failure
-	mock.ExpectBegin()
-	mock.ExpectExec(regexp.QuoteMeta(`UPDATE "rooms" SET "deleted_at"`)).
-		WithArgs(sqlmock.AnyArg(), 101).
-		WillReturnError(errors.New("delete failed"))
-	mock.ExpectRollback()
-
-	err = repo.DeleteRoomByNumber(101)
+	// failure: room not found
+	mock.ExpectQuery(regexp.QuoteMeta(`SELECT * FROM "rooms" WHERE number = $1 AND "rooms"."deleted_at" IS NULL ORDER BY "rooms"."id" LIMIT $2`)).
+		WithArgs(999, 1).
+		WillReturnError(errors.New("not found"))
+	err = repo.DeleteRoomByNumber(999)
 	if err == nil {
 		t.Errorf("expected error, got nil")
 	}

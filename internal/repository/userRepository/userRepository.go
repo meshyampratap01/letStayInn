@@ -79,3 +79,11 @@ func (r *GormUserRepository) GetStaffAvailability(userID string) (bool, error) {
 	}
 	return user.Available, nil
 }
+
+func (r *GormUserRepository) DeleteUserByID(userID string) error {
+	var user models.User
+	if err := r.db.Where("id = ?", userID).First(&user).Error; err != nil {
+		return err
+	}
+	return r.db.Delete(&user).Error
+}

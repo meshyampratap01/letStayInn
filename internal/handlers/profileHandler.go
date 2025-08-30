@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/meshyampratap01/letStayInn/internal/response"
+
 	"github.com/meshyampratap01/letStayInn/internal/auth"
 	contextkeys "github.com/meshyampratap01/letStayInn/internal/contextKeys"
 	"github.com/meshyampratap01/letStayInn/internal/dto"
@@ -28,13 +30,19 @@ func (h *ProfileHandler) ViewProfileHTTP(w http.ResponseWriter, r *http.Request)
 	userID, ok := userIDVal.(string)
 	if !ok || userID == "" {
 		logger.Log.Error("User ID not found in context", zap.Any("context", r.Context()))
-		http.Error(w, "User ID not found in context", http.StatusUnauthorized)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		resp := response.NewErrorResponse(http.StatusUnauthorized, "User ID not found in context")
+		json.NewEncoder(w).Encode(resp)
 		return
 	}
 	user, err := h.userService.GetUserByID(userID)
 	if err != nil {
 		logger.Log.Error("Error fetching user profile", zap.String("userID", userID), zap.Error(err))
-		http.Error(w, "Error fetching user profile", http.StatusInternalServerError)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		resp := response.NewErrorResponse(http.StatusInternalServerError, "Error fetching user profile")
+		json.NewEncoder(w).Encode(resp)
 		return
 	}
 	logger.Log.Info("User profile fetched", zap.String("userID", userID))
@@ -46,7 +54,7 @@ func (h *ProfileHandler) ViewProfileHTTP(w http.ResponseWriter, r *http.Request)
 		Available: user.Available,
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(resp)
+	json.NewEncoder(w).Encode(response.NewSuccessResponse(http.StatusOK, "User profile fetched successfully", resp))
 }
 
 // PUT /api/v1/profile
@@ -55,13 +63,19 @@ func (h *ProfileHandler) UpdateProfileHTTP(w http.ResponseWriter, r *http.Reques
 	userID, ok := userIDVal.(string)
 	if !ok || userID == "" {
 		logger.Log.Error("User ID not found in context", zap.Any("context", r.Context()))
-		http.Error(w, "User ID not found in context", http.StatusUnauthorized)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		resp := response.NewErrorResponse(http.StatusUnauthorized, "User ID not found in context")
+		json.NewEncoder(w).Encode(resp)
 		return
 	}
 	user, err := h.userService.GetUserByID(userID)
 	if err != nil {
 		logger.Log.Error("Error fetching user profile", zap.String("userID", userID), zap.Error(err))
-		http.Error(w, "Error fetching user profile", http.StatusInternalServerError)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		resp := response.NewErrorResponse(http.StatusInternalServerError, "Error fetching user profile")
+		json.NewEncoder(w).Encode(resp)
 		return
 	}
 	var req struct {
@@ -71,7 +85,10 @@ func (h *ProfileHandler) UpdateProfileHTTP(w http.ResponseWriter, r *http.Reques
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		logger.Log.Error("Invalid request body for profile update", zap.Error(err))
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		resp := response.NewErrorResponse(http.StatusBadRequest, "Invalid request body")
+		json.NewEncoder(w).Encode(resp)
 		return
 	}
 	updated := false
@@ -89,18 +106,26 @@ func (h *ProfileHandler) UpdateProfileHTTP(w http.ResponseWriter, r *http.Reques
 	}
 	if !updated {
 		logger.Log.Warn("No valid fields to update in profile", zap.String("userID", userID))
-		http.Error(w, "No valid fields to update", http.StatusBadRequest)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		resp := response.NewErrorResponse(http.StatusBadRequest, "No valid fields to update")
+		json.NewEncoder(w).Encode(resp)
 		return
 	}
 	err = h.userService.UpdateUser(user)
 	if err != nil {
 		logger.Log.Error("Error updating profile", zap.String("userID", userID), zap.Error(err))
-		http.Error(w, "Error updating profile", http.StatusInternalServerError)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		resp := response.NewErrorResponse(http.StatusInternalServerError, "Error updating profile")
+		json.NewEncoder(w).Encode(resp)
 		return
 	}
 	logger.Log.Info("Profile updated successfully", zap.String("userID", userID))
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"message": "Profile updated successfully"})
+	resp := response.NewSuccessResponse(http.StatusOK, "Profile updated successfully", nil)
+	json.NewEncoder(w).Encode(resp)
 }
 
 func containsAt(s string) bool {

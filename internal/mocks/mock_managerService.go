@@ -54,18 +54,18 @@ func (mr *MockIManagerServiceMockRecorder) AssignServiceRequest(reqID, empID any
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AssignServiceRequest", reflect.TypeOf((*MockIManagerService)(nil).AssignServiceRequest), reqID, empID)
 }
 
-// DeleteEmployeeByEmail mocks base method.
-func (m *MockIManagerService) DeleteEmployeeByEmail(email string) error {
+// DeleteEmployeeByID mocks base method.
+func (m *MockIManagerService) DeleteEmployeeByID(id string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteEmployeeByEmail", email)
+	ret := m.ctrl.Call(m, "DeleteEmployeeByID", id)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// DeleteEmployeeByEmail indicates an expected call of DeleteEmployeeByEmail.
-func (mr *MockIManagerServiceMockRecorder) DeleteEmployeeByEmail(email any) *gomock.Call {
+// DeleteEmployeeByID indicates an expected call of DeleteEmployeeByID.
+func (mr *MockIManagerServiceMockRecorder) DeleteEmployeeByID(id any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteEmployeeByEmail", reflect.TypeOf((*MockIManagerService)(nil).DeleteEmployeeByEmail), email)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteEmployeeByID", reflect.TypeOf((*MockIManagerService)(nil).DeleteEmployeeByID), id)
 }
 
 // GetAllEmployees mocks base method.

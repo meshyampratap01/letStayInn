@@ -165,28 +165,30 @@ func TestSubmitServiceRequestHTTP(t *testing.T) {
 		h, mockSRS, _, ctrl := setupServiceRequestHandler(t)
 		defer ctrl.Finish()
 
-		body := `{"room_num":101,"type":"Cleaning","details":"valid details"}`
+		mockSRS.EXPECT().ServiceRequestGetter(gomock.Any(), 101, models.ServiceTypeCleaning, "Clean room").Return(nil)
+
 		ctx := context.WithValue(context.Background(), contextkeys.UserRoleKey, "Guest")
 		ctx = context.WithValue(ctx, contextkeys.UserIDKey, "u1")
-
-		mockSRS.EXPECT().ServiceRequestGetter(gomock.Any(), 101, models.ServiceTypeCleaning, "valid details").
-			Return(nil)
-
-		req := httptest.NewRequest(http.MethodPost, "/api/v1/service-requests", bytes.NewBufferString(body)).WithContext(ctx)
+		body := []byte(`{"room_num":101,"type":"Cleaning","details":"Clean room"}`)
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/service-requests", bytes.NewReader(body)).WithContext(ctx)
 		rr := httptest.NewRecorder()
 
 		h.SubmitServiceRequestHTTP(rr, req)
 
 		if rr.Code != http.StatusCreated {
-			t.Errorf("expected 201, got %d", rr.Code)
+			t.Fatalf("expected 201, got %d", rr.Code)
 		}
 
-		var resp map[string]string
-		if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
-			t.Fatalf("failed to parse response: %v", err)
+		var wrapper struct {
+			Code    int    `json:"code"`
+			Message string `json:"message"`
+			Data    any    `json:"data"`
 		}
-		if resp["message"] != "Service request submitted" {
-			t.Errorf("expected success message, got %v", resp["message"])
+		if err := json.NewDecoder(rr.Body).Decode(&wrapper); err != nil {
+			t.Fatal("failed to decode response")
+		}
+		if wrapper.Message != "Service request submitted" {
+			t.Errorf("expected success message, got %s", wrapper.Message)
 		}
 	})
 }

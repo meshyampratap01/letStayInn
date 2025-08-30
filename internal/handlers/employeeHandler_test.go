@@ -28,6 +28,14 @@ func setupEmployee(t *testing.T) (*gomock.Controller, *mocks.MockIEmployeeServic
 	return ctrl, mockSvc, h
 }
 
+func decodeResponse(t *testing.T, body *bytes.Buffer) map[string]any {
+	var m map[string]any
+	if err := json.NewDecoder(body).Decode(&m); err != nil {
+		t.Fatalf("failed to decode json: %v", err)
+	}
+	return m
+}
+
 func TestViewAssignedServiceRequestsHTTP_Success(t *testing.T) {
 	ctrl, mockSvc, h := setupEmployee(t)
 	defer ctrl.Finish()
@@ -46,10 +54,12 @@ func TestViewAssignedServiceRequestsHTTP_Success(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", rec.Code)
 	}
-	var resp []map[string]any
-	_ = json.NewDecoder(rec.Body).Decode(&resp)
-	if len(resp) != 1 {
-		t.Errorf("expected 1 request, got %d", len(resp))
+	if ct := rec.Header().Get("Content-Type"); ct != "application/json" {
+		t.Errorf("expected application/json, got %s", ct)
+	}
+	resp := decodeResponse(t, rec.Body)
+	if resp["code"].(float64) != 200 {
+		t.Errorf("expected code 200, got %v", resp["code"])
 	}
 }
 
@@ -178,6 +188,26 @@ func TestUpdateServiceRequestStatusHTTP_InvalidStatus(t *testing.T) {
 
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400, got %d", rec.Code)
+	}
+}
+
+func TestUpdateServiceRequestStatusHTTP_ServiceFetchError(t *testing.T) {
+	ctrl, mockSvc, h := setupEmployee(t)
+	defer ctrl.Finish()
+
+	mockSvc.EXPECT().GetAssignedServiceRequests("emp1").Return(nil, errors.New("fetch failed"))
+
+	body := `{"status":"Pending"}`
+	req := httptest.NewRequest(http.MethodPut, "/", bytes.NewBufferString(body))
+	req.SetPathValue("serviceRequestId", "sr1")
+	ctx := context.WithValue(req.Context(), contextkeys.UserRoleKey, "CleaningStaff")
+	ctx = context.WithValue(ctx, contextkeys.UserIDKey, "emp1")
+	rec := httptest.NewRecorder()
+
+	h.UpdateServiceRequestStatusHTTP(rec, req.WithContext(ctx))
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("expected 500, got %d", rec.Code)
 	}
 }
 

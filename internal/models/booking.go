@@ -14,8 +14,8 @@ const (
 
 type Booking struct {
 	ID         string         `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
-	UserID     string         `gorm:"type:uuid;not null" json:"user_id"`
-	RoomID     string         `gorm:"type:uuid;not null" json:"room_id"`
+	UserID     string         `gorm:"type:uuid;not null;constraint:OnDelete:SET NULL;" json:"user_id"`
+	RoomID     string         `gorm:"type:uuid;not null;constraint:OnDelete:SET NULL;" json:"room_id"`
 	RoomNum    int            `json:"room_num"`
 	CheckIn    time.Time      `json:"check_in"`
 	CheckOut   time.Time      `json:"check_out"`

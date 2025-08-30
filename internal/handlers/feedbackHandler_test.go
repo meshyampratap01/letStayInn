@@ -3,6 +3,7 @@ package handlers
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -15,7 +16,6 @@ import (
 	"github.com/meshyampratap01/letStayInn/internal/mocks"
 )
 
-// helper to make request with body
 func makeRequest(method, path string, body []byte, role, userID interface{}) *http.Request {
 	req := httptest.NewRequest(method, path, bytes.NewReader(body))
 	ctx := req.Context()
@@ -47,24 +47,28 @@ func TestSubmitFeedbackHTTP(t *testing.T) {
 			req:        makeRequest(http.MethodPost, "/api/v1/feedback", nil, 123, "user-1"),
 			mockExpect: func() {},
 			wantStatus: http.StatusUnauthorized,
+			wantBodyMatch: "invalid role",
 		},
 		{
 			name:       "forbidden role (not Guest)",
 			req:        makeRequest(http.MethodPost, "/api/v1/feedback", nil, "Manager", "user-1"),
 			mockExpect: func() {},
 			wantStatus: http.StatusForbidden,
+			wantBodyMatch: "guest access required",
 		},
 		{
 			name:       "invalid userID type",
 			req:        makeRequest(http.MethodPost, "/api/v1/feedback", nil, "Guest", 123),
 			mockExpect: func() {},
 			wantStatus: http.StatusUnauthorized,
+			wantBodyMatch: "invalid user ID",
 		},
 		{
 			name:       "invalid JSON body",
 			req:        makeRequest(http.MethodPost, "/api/v1/feedback", []byte("{bad json"), "Guest", "user-1"),
 			mockExpect: func() {},
 			wantStatus: http.StatusBadRequest,
+			wantBodyMatch: "Invalid request body",
 		},
 		{
 			name: "service error while submitting feedback",
@@ -76,7 +80,9 @@ func TestSubmitFeedbackHTTP(t *testing.T) {
 				"user-1",
 			),
 			mockExpect: func() {
-				mockSvc.EXPECT().SubmitFeedback(gomock.Any(), "user-1", 5).Return(errors.New("db error"))
+				mockSvc.EXPECT().
+					SubmitFeedback(gomock.Any(), "great", 5).
+					Return(errors.New("db error"))
 			},
 			wantStatus:    http.StatusInternalServerError,
 			wantBodyMatch: "db error",
@@ -86,30 +92,59 @@ func TestSubmitFeedbackHTTP(t *testing.T) {
 			req: makeRequest(
 				http.MethodPost,
 				"/api/v1/feedback",
-				[]byte(`{"message":"great","rating":5}`),
+				[]byte(`{"message":"nice stay","rating":4}`),
 				"Guest",
 				"user-1",
 			),
 			mockExpect: func() {
-				mockSvc.EXPECT().SubmitFeedback(gomock.Any(), "user-1", 5).Return(nil)
+				mockSvc.EXPECT().
+					SubmitFeedback(gomock.Any(), "nice stay", 4).
+					Return(nil)
+			},
+			wantStatus:    http.StatusCreated,
+			wantBodyMatch: "Feedback submitted",
+		},
+		{
+			name: "success with empty message (edge case)",
+			req: makeRequest(
+				http.MethodPost,
+				"/api/v1/feedback",
+				[]byte(`{"message":"","rating":0}`),
+				"Guest",
+				"user-1",
+			),
+			mockExpect: func() {
+				mockSvc.EXPECT().
+					SubmitFeedback(gomock.Any(), "", 0).
+					Return(nil)
 			},
 			wantStatus:    http.StatusCreated,
 			wantBodyMatch: "Feedback submitted",
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			rr := httptest.NewRecorder()
-			tt.mockExpect()
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			tc.mockExpect()
+			rec := httptest.NewRecorder()
+			handler.SubmitFeedbackHTTP(rec, tc.req)
 
-			handler.SubmitFeedbackHTTP(rr, tt.req)
-
-			if rr.Code != tt.wantStatus {
-				t.Errorf("expected status %d, got %d", tt.wantStatus, rr.Code)
+			if rec.Code != tc.wantStatus {
+				t.Errorf("[%s] expected status %d, got %d", tc.name, tc.wantStatus, rec.Code)
 			}
-			if tt.wantBodyMatch != "" && !strings.Contains(rr.Body.String(), tt.wantBodyMatch) {
-				t.Errorf("expected body to contain %q, got %q", tt.wantBodyMatch, rr.Body.String())
+			// Check Content-Type header is always application/json
+			if got := rec.Header().Get("Content-Type"); !strings.Contains(got, "application/json") {
+				t.Errorf("[%s] expected Content-Type application/json, got %s", tc.name, got)
+			}
+			if tc.wantBodyMatch != "" {
+				if !strings.Contains(rec.Body.String(), tc.wantBodyMatch) {
+					t.Errorf("[%s] expected body to contain %q, got %q", tc.name, tc.wantBodyMatch, rec.Body.String())
+				}
+			}
+			// Also validate response is valid JSON
+			var js map[string]interface{}
+			if err := json.Unmarshal(rec.Body.Bytes(), &js); err != nil {
+				t.Errorf("[%s] response is not valid JSON: %v", tc.name, err)
 			}
 		})
 	}

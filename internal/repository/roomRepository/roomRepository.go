@@ -31,7 +31,11 @@ func (r *GormRoomRepository) SaveRooms(rooms []models.Room) error {
 }
 
 func (r *GormRoomRepository) DeleteRoomByNumber(number int) error {
-	return r.db.Where("number = ?", number).Delete(&models.Room{}).Error
+	var room models.Room
+	if err := r.db.Where("number = ?", number).First(&room).Error; err != nil {
+		return err
+	}
+	return r.db.Delete(&room).Error
 }
 
 func (r *GormRoomRepository) GetAvailableRooms() ([]models.Room, error) {

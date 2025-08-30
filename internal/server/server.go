@@ -45,7 +45,7 @@ func registerEmployeeRoutes(mux *http.ServeMux, prefix string, h *container.AppH
 	mux.HandleFunc("DELETE "+prefix+"employees/{employeeId}", withAuth(h.ManagerHandler.DeleteEmployeeHTTP))
 	mux.HandleFunc("PUT "+prefix+"employees/{employeeId}/availability", withAuth(h.ManagerHandler.UpdateEmployeeAvailabilityHTTP))
 	mux.HandleFunc("GET "+prefix+"employee/service-requests", withAuth(h.EmployeeHandler.ViewAssignedServiceRequestsHTTP))
-	mux.HandleFunc("PUT "+prefix+"employee/service-requests/{requestId}/status", withAuth(h.EmployeeHandler.UpdateServiceRequestStatusHTTP))
+	mux.HandleFunc("PUT "+prefix+"employee/service-requests/{serviceRequestId}/status", withAuth(h.EmployeeHandler.UpdateServiceRequestStatusHTTP))
 	mux.HandleFunc("PUT "+prefix+"employee/availability", withAuth(h.EmployeeHandler.ToggleAvailabilityHTTP))
 }
 

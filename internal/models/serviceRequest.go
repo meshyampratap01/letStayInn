@@ -29,7 +29,7 @@ type ServiceRequest struct {
 	Type       ServiceType    `json:"type"`                                                     // Cleaning / Food
 	Status     ServiceStatus  `json:"status"`                                                   // Pending / In Progress / Done / Cancelled
 	IsAssigned bool           `json:"is_assigned"`                                              // Assigned or not
-	AssignedTo string         `gorm:"type:uuid;default:null" json:"assigned_to"`                             // FK → Employees (UserID of staff)
+	AssignedTo string         `gorm:"type:uuid;default:null;constraint:OnDelete:SET NULL;" json:"assigned_to"`                             // FK → Employees (UserID of staff)
 	Details    string         `json:"details"`                                                  // Additional description
 	CreatedAt  time.Time      `json:"created_at"`
 	UpdatedAt  time.Time      `json:"updated_at"`

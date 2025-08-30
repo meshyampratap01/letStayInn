@@ -73,12 +73,16 @@ func TestViewProfileHTTP(t *testing.T) {
 			t.Fatalf("expected 200, got %d", rr.Code)
 		}
 
-		var resp dto.UserProfileDTO
-		if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
+		var wrapper struct {
+			Code    int                `json:"code"`
+			Message string             `json:"message"`
+			Data    dto.UserProfileDTO `json:"data"`
+		}
+		if err := json.NewDecoder(rr.Body).Decode(&wrapper); err != nil {
 			t.Fatal("failed to decode response")
 		}
-		if resp.ID != "123" {
-			t.Errorf("expected ID=123, got %v", resp.ID)
+		if wrapper.Data.ID != "123" {
+			t.Errorf("expected ID=123, got %s", wrapper.Data.ID)
 		}
 	})
 }
@@ -171,17 +175,23 @@ func TestUpdateProfileHTTP(t *testing.T) {
 		}
 	})
 
-	t.Run("success", func(t *testing.T) {
+	t.Run("success with name + email + password", func(t *testing.T) {
 		h, mockUserService, ctrl := setupProfileHandler(t)
 		defer ctrl.Finish()
 
 		newName := "Alice Updated"
-		body, _ := json.Marshal(map[string]string{"name": newName})
+		newEmail := "alice@updated.com"
+		newPassword := "securepass"
+		body, _ := json.Marshal(map[string]string{
+			"name":     newName,
+			"email":    newEmail,
+			"password": newPassword,
+		})
 		req := httptest.NewRequest(http.MethodPut, "/api/v1/profile", bytes.NewBuffer(body)).
 			WithContext(context.WithValue(context.Background(), contextkeys.UserIDKey, "123"))
 		rr := httptest.NewRecorder()
 
-		user := &models.User{ID: "123", Name: "Alice"}
+		user := &models.User{ID: "123", Name: "Alice", Email: "alice@test.com"}
 		mockUserService.EXPECT().GetUserByID("123").Return(user, nil)
 		mockUserService.EXPECT().UpdateUser(gomock.Any()).Return(nil)
 
@@ -198,12 +208,12 @@ func TestContainsAt(t *testing.T) {
 		email    string
 		expected bool
 	}{
-		{"user@example.com", true},  
-		{"foo@bar", true},          
-		{"foobar.com", false},      
-		{"", false},                
-		{"@leading", true},         
-		{"trailing@", true},        
+		{"user@example.com", true},
+		{"foo@bar", true},
+		{"foobar.com", false},
+		{"", false},
+		{"@leading", true},
+		{"trailing@", true},
 	}
 
 	for _, tt := range tests {
@@ -213,4 +223,3 @@ func TestContainsAt(t *testing.T) {
 		}
 	}
 }
-

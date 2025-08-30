@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/fatih/color"
 	contextkeys "github.com/meshyampratap01/letStayInn/internal/contextKeys"
 	"github.com/meshyampratap01/letStayInn/internal/models"
 	"github.com/meshyampratap01/letStayInn/internal/repository/bookingRepository"
@@ -96,7 +95,6 @@ func (s *ServiceRequestService) ServiceRequestGetter(ctx context.Context, roomNu
 		return fmt.Errorf("failed to save request: %w", err)
 	}
 
-	fmt.Printf(color.GreenString("✅%s request submitted for room %d!\n"), reqType, roomNum)
 	return nil
 }
 

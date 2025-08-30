@@ -8,7 +8,7 @@ type IManagerService interface {
 	UpdateEmployeeAvailability(email string, available bool) error
 	GetTotalEmployees() (int, error)
 	GetAllEmployees() ([]models.User, error)
-	DeleteEmployeeByEmail(email string) error
+	DeleteEmployeeByID(id string) error
 	GetAvailableStaffByTaskType(string) ([]models.User, error)
 	AssignServiceRequest(reqID string, empID string) error
 	GetHotelReport() (*models.HotelReport, error)

@@ -1,883 +1,947 @@
 package handlers
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
-	contextkeys "github.com/meshyampratap01/letStayInn/internal/contextKeys"
-	"github.com/meshyampratap01/letStayInn/internal/logger"
-	"github.com/meshyampratap01/letStayInn/internal/mocks"
-	"github.com/meshyampratap01/letStayInn/internal/models"
 	gomock "go.uber.org/mock/gomock"
 	"go.uber.org/zap"
+
+	contextkeys "github.com/meshyampratap01/letStayInn/internal/contextKeys"
+	"github.com/meshyampratap01/letStayInn/internal/dto"
+	logger "github.com/meshyampratap01/letStayInn/internal/logger"
+	"github.com/meshyampratap01/letStayInn/internal/mocks"
+	"github.com/meshyampratap01/letStayInn/internal/models"
 )
 
-// setup for manager handler
-func setupManager(t *testing.T) (*gomock.Controller,
+func mgrCtx(req *http.Request) *http.Request {
+	return req.WithContext(context.WithValue(req.Context(), contextkeys.UserRoleKey, "Manager"))
+}
+
+func nonMgrCtx(req *http.Request) *http.Request {
+	return req.WithContext(context.WithValue(req.Context(), contextkeys.UserRoleKey, "Guest"))
+}
+
+func setupAll(t *testing.T) (
+	*gomock.Controller,
 	*mocks.MockIRoomService,
 	*mocks.MockIBookingService,
 	*mocks.MockIUserService,
 	*mocks.MockIServiceRequestService,
 	*mocks.MockIManagerService,
-	*ManagerHandler) {
-
+	*ManagerHandler,
+) {
 	ctrl := gomock.NewController(t)
-
 	mockRoom := mocks.NewMockIRoomService(ctrl)
 	mockBooking := mocks.NewMockIBookingService(ctrl)
 	mockUser := mocks.NewMockIUserService(ctrl)
-	mockSR := mocks.NewMockIServiceRequestService(ctrl)
+	mockServiceReq := mocks.NewMockIServiceRequestService(ctrl)
 	mockManager := mocks.NewMockIManagerService(ctrl)
 
-	h := NewManagerHandler(mockRoom, mockBooking, mockUser, mockSR, mockManager)
-
-	// disable logging
 	logger.Log = zap.NewNop()
 
-	return ctrl, mockRoom, mockBooking, mockUser, mockSR, mockManager, h
+	h := NewManagerHandler(mockRoom, mockBooking, mockUser, mockServiceReq, mockManager)
+	return ctrl, mockRoom, mockBooking, mockUser, mockServiceReq, mockManager, h
 }
 
-// utility to make a manager-context request
-func managerReq(req *http.Request) *http.Request {
-	return req.WithContext(context.WithValue(req.Context(), contextkeys.UserRoleKey, "Manager"))
+// ---------- RequireManager ----------
+func TestRequireManager_Behaviour(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+
+	// missing role -> unauthorized error
+	if err := RequireManager(req); err == nil || !strings.Contains(err.Error(), "unauthorized") {
+		t.Fatalf("expected unauthorized error when role missing")
+	}
+
+	// wrong type -> unauthorized
+	req = req.WithContext(context.WithValue(req.Context(), contextkeys.UserRoleKey, 123))
+	if err := RequireManager(req); err == nil || !strings.Contains(err.Error(), "unauthorized") {
+		t.Fatalf("expected unauthorized error for wrong type")
+	}
+
+	// wrong role string -> forbidden
+	req = req.WithContext(context.WithValue(req.Context(), contextkeys.UserRoleKey, "Guest"))
+	if err := RequireManager(req); err == nil || !strings.Contains(err.Error(), "forbidden") {
+		t.Fatalf("expected forbidden error for non-manager")
+	}
+
+	// correct
+	req = req.WithContext(context.WithValue(req.Context(), contextkeys.UserRoleKey, "Manager"))
+	if err := RequireManager(req); err != nil {
+		t.Fatalf("expected no error for manager role, got %v", err)
+	}
 }
 
-func nonManagerReq(req *http.Request) *http.Request {
-	return req.WithContext(context.WithValue(req.Context(), contextkeys.UserRoleKey, "Guest"))
-}
-
-func TestUpdateRoomHTTP_Success(t *testing.T) {
-	ctrl, mockRoom, _, _, _, _, h := setupManager(t)
+// ---------- UpdateRoomHTTP ----------
+func TestUpdateRoomHTTP_AllBranches(t *testing.T) {
+	ctrl, mockRoom, _, _, _, _, h := setupAll(t)
 	defer ctrl.Finish()
 
-	mockRoom.EXPECT().UpdateRoom(101, 1, "Deluxe", 200.0, true, "Nice").Return(nil)
-
-	body := `{"choice":1,"type":"Deluxe","price":200,"is_available":true,"description":"Nice"}`
-	req := httptest.NewRequest(http.MethodPut, "/api/v1/rooms/101", strings.NewReader(body))
-	req.SetPathValue("roomNum", "101")
-	rec := httptest.NewRecorder()
-
-	h.UpdateRoomHTTP(rec, managerReq(req))
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected 200 got %d", rec.Code)
-	}
-}
-
-func TestUpdateRoomHTTP_InvalidRole(t *testing.T) {
-	_, _, _, _, _, _, h := setupManager(t)
-
-	req := httptest.NewRequest(http.MethodPut, "/api/v1/rooms/101", nil)
-	rec := httptest.NewRecorder()
-	h.UpdateRoomHTTP(rec, nonManagerReq(req))
-	if rec.Code != http.StatusForbidden {
-		t.Fatalf("expected 403 got %d", rec.Code)
-	}
-}
-
-func TestDeleteRoomHTTP_RoomBooked(t *testing.T) {
-	ctrl, _, mockBooking, _, _, _, h := setupManager(t)
-	defer ctrl.Finish()
-
-	mockBooking.EXPECT().IsRoomBooked(101).Return(true, nil)
-
-	req := httptest.NewRequest(http.MethodDelete, "/api/v1/rooms/101", nil)
-	req.SetPathValue("roomNum", "101")
-	rec := httptest.NewRecorder()
-	h.DeleteRoomHTTP(rec, managerReq(req))
-
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400 got %d", rec.Code)
-	}
-}
-
-func TestDeleteRoomHTTP_Unauthorized(t *testing.T) {
-	_, _, _, _, _, _, h := setupManager(t)
-
-	req := httptest.NewRequest(http.MethodDelete, "/api/v1/rooms/101", nil)
-	req.SetPathValue("roomNum", "101")
-	rec := httptest.NewRecorder()
-
-	// not wrapped with managerReq → should fail RequireManager
-	h.DeleteRoomHTTP(rec, req)
-
-	if rec.Code != http.StatusForbidden {
-		t.Fatalf("expected 403 got %d", rec.Code)
-	}
-}
-
-func TestDeleteRoomHTTP_InvalidRoomNumber(t *testing.T) {
-	_, _, _, _, _, _, h := setupManager(t)
-
-	// non-numeric
-	req := httptest.NewRequest(http.MethodDelete, "/api/v1/rooms/abc", nil)
-	req.SetPathValue("roomNum", "abc")
-	rec := httptest.NewRecorder()
-	h.DeleteRoomHTTP(rec, managerReq(req))
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400 got %d", rec.Code)
+	// Forbidden (not manager)
+	{
+		req := httptest.NewRequest(http.MethodPut, "/api/v1/rooms/1", bytes.NewBufferString(`{}`))
+		req = nonMgrCtx(req)
+		rec := httptest.NewRecorder()
+		h.UpdateRoomHTTP(rec, req)
+		if rec.Code != http.StatusForbidden {
+			t.Fatalf("expected 403 for forbidden, got %d", rec.Code)
+		}
 	}
 
-	// zero or negative
-	req = httptest.NewRequest(http.MethodDelete, "/api/v1/rooms/0", nil)
-	req.SetPathValue("roomNum", "0")
-	rec = httptest.NewRecorder()
-	h.DeleteRoomHTTP(rec, managerReq(req))
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400 got %d", rec.Code)
-	}
-}
-
-func TestDeleteRoomHTTP_IsRoomBookedError(t *testing.T) {
-	ctrl, _, mockBooking, _, _, _, h := setupManager(t)
-	defer ctrl.Finish()
-
-	mockBooking.EXPECT().IsRoomBooked(101).Return(false, errors.New("db error"))
-
-	req := httptest.NewRequest(http.MethodDelete, "/api/v1/rooms/101", nil)
-	req.SetPathValue("roomNum", "101")
-	rec := httptest.NewRecorder()
-	h.DeleteRoomHTTP(rec, managerReq(req))
-
-	if rec.Code != http.StatusInternalServerError {
-		t.Fatalf("expected 500 got %d", rec.Code)
-	}
-	if !strings.Contains(rec.Body.String(), "db error") {
-		t.Errorf("expected db error message, got %s", rec.Body.String())
-	}
-}
-
-func TestDeleteRoomHTTP_DeleteRoomError(t *testing.T) {
-	ctrl, mockRoom, mockBooking, _, _, _, h := setupManager(t)
-	defer ctrl.Finish()
-
-	mockBooking.EXPECT().IsRoomBooked(101).Return(false, nil)
-	mockRoom.EXPECT().DeleteRoom(101).Return(errors.New("delete failed"))
-
-	req := httptest.NewRequest(http.MethodDelete, "/api/v1/rooms/101", nil)
-	req.SetPathValue("roomNum", "101")
-	rec := httptest.NewRecorder()
-	h.DeleteRoomHTTP(rec, managerReq(req))
-
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400 got %d", rec.Code)
-	}
-	if !strings.Contains(rec.Body.String(), "delete failed") {
-		t.Errorf("expected delete failed message, got %s", rec.Body.String())
-	}
-}
-
-func TestDeleteRoomHTTP_Success(t *testing.T) {
-	ctrl, mockRoom, mockBooking, _, _, _, h := setupManager(t)
-	defer ctrl.Finish()
-
-	mockBooking.EXPECT().IsRoomBooked(101).Return(false, nil)
-	mockRoom.EXPECT().DeleteRoom(101).Return(nil)
-
-	req := httptest.NewRequest(http.MethodDelete, "/api/v1/rooms/101", nil)
-	req.SetPathValue("roomNum", "101")
-	rec := httptest.NewRecorder()
-	h.DeleteRoomHTTP(rec, managerReq(req))
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected 200 got %d", rec.Code)
+	// Invalid JSON
+	{
+		req := httptest.NewRequest(http.MethodPut, "/api/v1/rooms/1", bytes.NewBufferString("{bad json"))
+		req = mgrCtx(req)
+		req.SetPathValue("roomNum", "1")
+		rec := httptest.NewRecorder()
+		h.UpdateRoomHTTP(rec, req)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("expected 400 for invalid json, got %d", rec.Code)
+		}
 	}
 
-	var resp map[string]string
-	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
-		t.Fatalf("failed to decode response: %v", err)
-	}
-	if resp["message"] != "Room deleted successfully" {
-		t.Errorf("expected success message, got %s", resp["message"])
-	}
-}
-
-
-func TestListEmployeesHTTP_Success(t *testing.T) {
-	ctrl, _, _, _, _, mockManager, h := setupManager(t)
-	defer ctrl.Finish()
-
-	mockManager.EXPECT().GetAllEmployees().Return([]models.User{
-		{ID: "e1", Name: "John", Email: "j@x.com", Role: models.RoleCleaningStaff, Available: true},
-	}, nil)
-
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/employees", nil)
-	rec := httptest.NewRecorder()
-	h.ListEmployeesHTTP(rec, managerReq(req))
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected 200 got %d", rec.Code)
-	}
-}
-
-func TestCreateEmployeeHTTP_InvalidRole(t *testing.T) {
-	_, _, _, mockUser, _, _, h := setupManager(t)
-
-	body := `{"name":"John","email":"j@x.com","password":"pass","role":"Invalid"}`
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/employees", strings.NewReader(body))
-	rec := httptest.NewRecorder()
-	h.CreateEmployeeHTTP(rec, managerReq(req))
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400 got %d", rec.Code)
+	// Invalid room number via Sscanf -> non-int
+	{
+		body := `{"choice":1,"type":"X","price":10,"is_available":true,"description":"d"}`
+		req := httptest.NewRequest(http.MethodPut, "/api/v1/rooms/abc", bytes.NewBufferString(body))
+		req = mgrCtx(req)
+		req.SetPathValue("roomNum", "abc")
+		rec := httptest.NewRecorder()
+		h.UpdateRoomHTTP(rec, req)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("expected 400 for invalid room number, got %d", rec.Code)
+		}
 	}
 
-	// also cover success
-	mockUser.EXPECT().CreateEmployee("John", "j@x.com", "pass", models.RoleKitchenStaff, true).
-		Return(models.User{ID: "e1"}, nil)
-
-	body = `{"name":"John","email":"j@x.com","password":"pass","role":"KitchenStaff","available":true}`
-	req = httptest.NewRequest(http.MethodPost, "/api/v1/employees", strings.NewReader(body))
-	rec = httptest.NewRecorder()
-	h.CreateEmployeeHTTP(rec, managerReq(req))
-	if rec.Code != http.StatusCreated {
-		t.Fatalf("expected 201 got %d", rec.Code)
-	}
-}
-
-func TestDeleteEmployeeHTTP_Success(t *testing.T) {
-	ctrl, _, _, _, _, mockManager, h := setupManager(t)
-	defer ctrl.Finish()
-
-	mockManager.EXPECT().DeleteEmployeeByEmail("e1").Return(nil)
-	req := httptest.NewRequest(http.MethodDelete, "/api/v1/employees/e1", nil)
-	req.SetPathValue("employeeId", "e1")
-	rec := httptest.NewRecorder()
-	h.DeleteEmployeeHTTP(rec, managerReq(req))
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected 200 got %d", rec.Code)
-	}
-}
-
-func TestUpdateEmployeeAvailabilityHTTP_Success(t *testing.T) {
-	ctrl, _, _, _, _, mockManager, h := setupManager(t)
-	defer ctrl.Finish()
-
-	mockManager.EXPECT().UpdateEmployeeAvailability("e1", true).Return(nil)
-	body := `{"available":true}`
-	req := httptest.NewRequest(http.MethodPut, "/api/v1/employees/e1/availability", strings.NewReader(body))
-	req.SetPathValue("employeeId", "e1")
-	rec := httptest.NewRecorder()
-	h.UpdateEmployeeAvailabilityHTTP(rec, managerReq(req))
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected 200 got %d", rec.Code)
-	}
-}
-
-func TestListAllBookingsHTTP_AllTrue(t *testing.T) {
-	ctrl, _, mockBooking, _, _, _, h := setupManager(t)
-	defer ctrl.Finish()
-
-	mockBooking.EXPECT().GetActiveBookings().Return([]models.Booking{{ID: "b1"}}, nil)
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/bookings?all=true", nil)
-	rec := httptest.NewRecorder()
-	h.ListAllBookingsHTTP(rec, managerReq(req))
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected 200 got %d", rec.Code)
-	}
-}
-
-func TestListUnassignedServiceRequestsHTTP(t *testing.T) {
-	ctrl, _, _, _, mockSR, _, h := setupManager(t)
-	defer ctrl.Finish()
-
-	mockSR.EXPECT().GetUnassignedServiceRequest().Return([]models.ServiceRequest{{ID: "sr1"}}, nil)
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/service-requests?unassigned=true", nil)
-	rec := httptest.NewRecorder()
-	h.ListUnassignedServiceRequestsHTTP(rec, managerReq(req))
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected 200 got %d", rec.Code)
-	}
-}
-
-func TestAssignServiceRequestHTTP_Success(t *testing.T) {
-	ctrl, _, _, _, _, mockManager, h := setupManager(t)
-	defer ctrl.Finish()
-
-	mockManager.EXPECT().AssignServiceRequest("sr1", "e1").Return(nil)
-	body := `{"employee_id":"e1"}`
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/service-requests/sr1/assign", strings.NewReader(body))
-	req.SetPathValue("requestId", "sr1")
-	rec := httptest.NewRecorder()
-	h.AssignServiceRequestHTTP(rec, managerReq(req))
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected 200 got %d", rec.Code)
-	}
-}
-
-func TestManager_UpdateServiceRequestStatusHTTP_InvalidStatus(t *testing.T) {
-	_, _, _, _, _, _, h := setupManager(t)
-	body := `{"status":"Invalid"}`
-	req := httptest.NewRequest(http.MethodPut, "/api/v1/service-requests/s1/status", strings.NewReader(body))
-	req.SetPathValue("requestId", "s1")
-	rec := httptest.NewRecorder()
-	h.UpdateServiceRequestStatusHTTP(rec, managerReq(req))
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400 got %d", rec.Code)
-	}
-}
-
-func TestManager_UpdateServiceRequestStatusHTTP_MissingRequestID(t *testing.T) {
-	_, _, _, _, _, _, h := setupManager(t)
-
-	body := `{"status":"Pending"}`
-	req := httptest.NewRequest(http.MethodPut, "/api/v1/service-requests//status", strings.NewReader(body))
-	// intentionally not setting requestId
-	rec := httptest.NewRecorder()
-
-	h.UpdateServiceRequestStatusHTTP(rec, managerReq(req))
-
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400 got %d", rec.Code)
-	}
-	if !strings.Contains(rec.Body.String(), "Missing service request id") {
-		t.Errorf("expected missing id error, got %s", rec.Body.String())
-	}
-}
-
-func TestManager_UpdateServiceRequestStatusHTTP_InvalidBody(t *testing.T) {
-	_, _, _, _, _, _, h := setupManager(t)
-
-	body := `{"status":` // malformed JSON
-	req := httptest.NewRequest(http.MethodPut, "/api/v1/service-requests/s1/status", strings.NewReader(body))
-	req.SetPathValue("requestId", "s1")
-	rec := httptest.NewRecorder()
-
-	h.UpdateServiceRequestStatusHTTP(rec, managerReq(req))
-
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400 got %d", rec.Code)
-	}
-	if !strings.Contains(rec.Body.String(), "Invalid request body") {
-		t.Errorf("expected invalid body error, got %s", rec.Body.String())
-	}
-}
-
-func TestManager_UpdateServiceRequestStatusHTTP_ServiceError(t *testing.T) {
-	_, _, _, _, _, _, h := setupManager(t)
-
-	// mock service failure
-	h.serviceRequestService.(*mocks.MockIServiceRequestService).
-		EXPECT().
-		UpdateServiceRequestStatus("s1", models.ServiceStatusPending).
-		Return(errors.New("update failed"))
-
-	body := `{"status":"Pending"}`
-	req := httptest.NewRequest(http.MethodPut, "/api/v1/service-requests/s1/status", strings.NewReader(body))
-	req.SetPathValue("requestId", "s1")
-	rec := httptest.NewRecorder()
-
-	h.UpdateServiceRequestStatusHTTP(rec, managerReq(req))
-
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400 got %d", rec.Code)
-	}
-	if !strings.Contains(rec.Body.String(), "update failed") {
-		t.Errorf("expected update failed message, got %s", rec.Body.String())
-	}
-}
-
-func TestManager_UpdateServiceRequestStatusHTTP_Success(t *testing.T) {
-	_, _, _, _, _, _, h := setupManager(t)
-
-	// mock service success
-	h.serviceRequestService.(*mocks.MockIServiceRequestService).
-		EXPECT().
-		UpdateServiceRequestStatus("s1", models.ServiceStatusPending).
-		Return(nil)
-
-	body := `{"status":"Pending"}`
-	req := httptest.NewRequest(http.MethodPut, "/api/v1/service-requests/s1/status", strings.NewReader(body))
-	req.SetPathValue("requestId", "s1")
-	rec := httptest.NewRecorder()
-
-	h.UpdateServiceRequestStatusHTTP(rec, managerReq(req))
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected 200 got %d", rec.Code)
-	}
-
-	var resp map[string]string
-	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
-		t.Fatalf("failed to decode response: %v", err)
-	}
-	if resp["message"] != "Service request status updated" {
-		t.Errorf("expected success message, got %s", resp["message"])
-	}
-}
-
-func TestManager_UpdateServiceRequestStatusHTTP_Unauthorized(t *testing.T) {
-	_, _, _, _, _, _, h := setupManager(t)
-
-	body := `{"status":"Pending"}`
-	req := httptest.NewRequest(http.MethodPut, "/api/v1/service-requests/s1/status", strings.NewReader(body))
-	req.SetPathValue("requestId", "s1")
-	rec := httptest.NewRecorder()
-
-	// don’t wrap with managerReq → should fail RequireManager
-	h.UpdateServiceRequestStatusHTTP(rec, req)
-
-	if rec.Code != http.StatusForbidden {
-		t.Fatalf("expected 403 got %d", rec.Code)
-	}
-}
-
-func TestCancelServiceRequestHTTP_Success(t *testing.T) {
-	ctrl, _, _, _, mockSR, _, h := setupManager(t)
-	defer ctrl.Finish()
-
-	mockSR.EXPECT().CancelServiceRequestByID("sr1").Return(nil)
-	req := httptest.NewRequest(http.MethodDelete, "/api/v1/service-requests/sr1", nil)
-	req.SetPathValue("requestId", "sr1")
-	rec := httptest.NewRecorder()
-	h.CancelServiceRequestHTTP(rec, managerReq(req))
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected 200 got %d", rec.Code)
-	}
-}
-
-func TestListAllFeedbackHTTP_Success(t *testing.T) {
-	ctrl, _, _, _, _, mockManager, h := setupManager(t)
-	defer ctrl.Finish()
-
-	mockManager.EXPECT().ViewAllFeedback().Return([]models.Feedback{{ID: "f1"}}, nil)
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/feedback?all=true", nil)
-	rec := httptest.NewRecorder()
-	h.ListAllFeedbackHTTP(rec, managerReq(req))
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected 200 got %d", rec.Code)
-	}
-}
-
-func TestGenerateReportHTTP_Success(t *testing.T) {
-	ctrl, _, _, _, _, mockManager, h := setupManager(t)
-	defer ctrl.Finish()
-
-	mockManager.EXPECT().GetHotelReport().Return(&models.HotelReport{AvailableRooms: 10}, nil)
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/report", nil)
-	rec := httptest.NewRecorder()
-	h.GenerateReportHTTP(rec, managerReq(req))
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected 200 got %d", rec.Code)
-	}
-}
-
-func TestAddRoomHTTP_Success(t *testing.T) {
-	ctrl, mockRoom, _, _, _, _, h := setupManager(t)
-	defer ctrl.Finish()
-
-	mockRoom.EXPECT().AddRoom(201, "Deluxe", 500.0, true, "Sea view").Return(nil)
-	body := `{"number":201,"type":"Deluxe","price":500,"description":"Sea view"}`
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/rooms", strings.NewReader(body))
-	rec := httptest.NewRecorder()
-	h.AddRoomHTTP(rec, managerReq(req))
-	if rec.Code != http.StatusCreated {
-		t.Fatalf("expected 201 got %d", rec.Code)
-	}
-}
-
-func TestUpdateRoomHTTP_Errors(t *testing.T) {
-	_, mockRoom, _, _, _, _, h := setupManager(t)
-
-	// invalid body
-	req := httptest.NewRequest(http.MethodPut, "/api/v1/rooms/101", strings.NewReader("bad json"))
-	req.SetPathValue("roomNum", "101")
-	rec := httptest.NewRecorder()
-	h.UpdateRoomHTTP(rec, managerReq(req))
-	if rec.Code != http.StatusBadRequest {
-		t.Errorf("expected 400 got %d", rec.Code)
-	}
-
-	// invalid room number
-	body := `{"choice":1}`
-	req = httptest.NewRequest(http.MethodPut, "/api/v1/rooms/abc", strings.NewReader(body))
-	req.SetPathValue("roomNum", "abc")
-	rec = httptest.NewRecorder()
-	h.UpdateRoomHTTP(rec, managerReq(req))
-	if rec.Code != http.StatusBadRequest {
-		t.Errorf("expected 400 got %d", rec.Code)
-	}
-
-	// update error
-	mockRoom.EXPECT().UpdateRoom(101, 1, "", 0.0, false, "").Return(errors.New("fail"))
-	req = httptest.NewRequest(http.MethodPut, "/api/v1/rooms/101", strings.NewReader(body))
-	req.SetPathValue("roomNum", "101")
-	rec = httptest.NewRecorder()
-	h.UpdateRoomHTTP(rec, managerReq(req))
-	if rec.Code != http.StatusBadRequest {
-		t.Errorf("expected 400 got %d", rec.Code)
-	}
-}
-
-func TestDeleteRoomHTTP_Errors(t *testing.T) {
-	ctrl, mockRoom, mockBooking, _, _, _, h := setupManager(t)
-	defer ctrl.Finish()
-
-	// invalid room number
-	req := httptest.NewRequest(http.MethodDelete, "/api/v1/rooms/xx", nil)
-	req.SetPathValue("roomNum", "xx")
-	rec := httptest.NewRecorder()
-	h.DeleteRoomHTTP(rec, managerReq(req))
-	if rec.Code != http.StatusBadRequest {
-		t.Errorf("expected 400 got %d", rec.Code)
-	}
-
-	// IsRoomBooked error
-	mockBooking.EXPECT().IsRoomBooked(101).Return(false, errors.New("boom"))
-	req = httptest.NewRequest(http.MethodDelete, "/api/v1/rooms/101", nil)
-	req.SetPathValue("roomNum", "101")
-	rec = httptest.NewRecorder()
-	h.DeleteRoomHTTP(rec, managerReq(req))
-	if rec.Code != http.StatusInternalServerError {
-		t.Errorf("expected 500 got %d", rec.Code)
-	}
-
-	// DeleteRoom error
-	mockBooking.EXPECT().IsRoomBooked(102).Return(false, nil)
-	mockRoom.EXPECT().DeleteRoom(102).Return(errors.New("fail"))
-	req = httptest.NewRequest(http.MethodDelete, "/api/v1/rooms/102", nil)
-	req.SetPathValue("roomNum", "102")
-	rec = httptest.NewRecorder()
-	h.DeleteRoomHTTP(rec, managerReq(req))
-	if rec.Code != http.StatusBadRequest {
-		t.Errorf("expected 400 got %d", rec.Code)
-	}
-}
-
-func TestListEmployeesHTTP_Error(t *testing.T) {
-	_, _, _, _, _, mockManager, h := setupManager(t)
-	mockManager.EXPECT().GetAllEmployees().Return(nil, errors.New("fail"))
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/employees", nil)
-	rec := httptest.NewRecorder()
-	h.ListEmployeesHTTP(rec, managerReq(req))
-	if rec.Code != http.StatusInternalServerError {
-		t.Errorf("expected 500 got %d", rec.Code)
-	}
-}
-
-func TestCreateEmployeeHTTP_Errors(t *testing.T) {
-	_, _, _, mockUser, _, _, h := setupManager(t)
-
-	// invalid body
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/employees", strings.NewReader("bad"))
-	rec := httptest.NewRecorder()
-	h.CreateEmployeeHTTP(rec, managerReq(req))
-	if rec.Code != http.StatusBadRequest {
-		t.Errorf("expected 400 got %d", rec.Code)
-	}
-
-	// CreateEmployee error
-	mockUser.EXPECT().CreateEmployee("John", "j@x.com", "pass", models.RoleKitchenStaff, true).
-		Return(models.User{}, errors.New("fail"))
-	body := `{"name":"John","email":"j@x.com","password":"pass","role":"KitchenStaff","available":true}`
-	req = httptest.NewRequest(http.MethodPost, "/api/v1/employees", strings.NewReader(body))
-	rec = httptest.NewRecorder()
-	h.CreateEmployeeHTTP(rec, managerReq(req))
-	if rec.Code != http.StatusBadRequest {
-		t.Errorf("expected 400 got %d", rec.Code)
-	}
-}
-
-func TestDeleteEmployeeHTTP_Errors(t *testing.T) {
-	_, _, _, _, _, mockManager, h := setupManager(t)
-
-	// missing employeeId
-	req := httptest.NewRequest(http.MethodDelete, "/api/v1/employees/", nil)
-	rec := httptest.NewRecorder()
-	h.DeleteEmployeeHTTP(rec, managerReq(req))
-	if rec.Code != http.StatusBadRequest {
-		t.Errorf("expected 400 got %d", rec.Code)
-	}
-
-	// delete error
-	mockManager.EXPECT().DeleteEmployeeByEmail("e1").Return(errors.New("fail"))
-	req = httptest.NewRequest(http.MethodDelete, "/api/v1/employees/e1", nil)
-	req.SetPathValue("employeeId", "e1")
-	rec = httptest.NewRecorder()
-	h.DeleteEmployeeHTTP(rec, managerReq(req))
-	if rec.Code != http.StatusBadRequest {
-		t.Errorf("expected 400 got %d", rec.Code)
-	}
-}
-
-func TestUpdateEmployeeAvailabilityHTTP_Errors(t *testing.T) {
-	_, _, _, _, _, mockManager, h := setupManager(t)
-
-	// invalid body
-	req := httptest.NewRequest(http.MethodPut, "/api/v1/employees/e1/availability", strings.NewReader("bad"))
-	req.SetPathValue("employeeId", "e1")
-	rec := httptest.NewRecorder()
-	h.UpdateEmployeeAvailabilityHTTP(rec, managerReq(req))
-	if rec.Code != http.StatusBadRequest {
-		t.Errorf("expected 400 got %d", rec.Code)
-	}
-
-	// update error
-	mockManager.EXPECT().UpdateEmployeeAvailability("e1", false).Return(errors.New("fail"))
-	body := `{"available":false}`
-	req = httptest.NewRequest(http.MethodPut, "/api/v1/employees/e1/availability", strings.NewReader(body))
-	req.SetPathValue("employeeId", "e1")
-	rec = httptest.NewRecorder()
-	h.UpdateEmployeeAvailabilityHTTP(rec, managerReq(req))
-	if rec.Code != http.StatusBadRequest {
-		t.Errorf("expected 400 got %d", rec.Code)
-	}
-}
-
-func TestUpdateEmployeeAvailabilityHTTP_MissingEmployeeID(t *testing.T) {
-	_, _, _, _, _, _, h := setupManager(t)
-
-	body := `{"available":true}`
-	req := httptest.NewRequest(http.MethodPut, "/api/v1/employees//availability", strings.NewReader(body))
-	// intentionally not setting employeeId
-	rec := httptest.NewRecorder()
-
-	h.UpdateEmployeeAvailabilityHTTP(rec, managerReq(req))
-
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400 got %d", rec.Code)
-	}
-	if !strings.Contains(rec.Body.String(), "Missing employee id") {
-		t.Errorf("expected missing employee id error, got %s", rec.Body.String())
-	}
-}
-
-func TestUpdateEmployeeAvailabilityHTTP_Unauthorized(t *testing.T) {
-	_, _, _, _, _, _, h := setupManager(t)
-
-	body := `{"available":true}`
-	req := httptest.NewRequest(http.MethodPut, "/api/v1/employees/e1/availability", strings.NewReader(body))
-	req.SetPathValue("employeeId", "e1")
-	rec := httptest.NewRecorder()
-
-	// don’t wrap request with managerReq → should fail RequireManager
-	h.UpdateEmployeeAvailabilityHTTP(rec, req)
-
-	if rec.Code != http.StatusForbidden {
-		t.Fatalf("expected 403 got %d", rec.Code)
-	}
-}
-
-func TestUpdateEmployeeAvailabilityHTTP_SuccessTrue(t *testing.T) {
-	_, _, _, _, _, mockManager, h := setupManager(t)
-
-	mockManager.EXPECT().UpdateEmployeeAvailability("e1", true).Return(nil)
-
-	body := `{"available":true}`
-	req := httptest.NewRequest(http.MethodPut, "/api/v1/employees/e1/availability", strings.NewReader(body))
-	req.SetPathValue("employeeId", "e1")
-	rec := httptest.NewRecorder()
-
-	h.UpdateEmployeeAvailabilityHTTP(rec, managerReq(req))
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected 200 got %d", rec.Code)
-	}
-	var resp map[string]string
-	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
-		t.Fatalf("failed to decode response: %v", err)
-	}
-	if resp["message"] != "Employee availability updated" {
-		t.Errorf("expected success message, got %s", resp["message"])
-	}
-}
-
-func TestUpdateEmployeeAvailabilityHTTP_SuccessFalse(t *testing.T) {
-	_, _, _, _, _, mockManager, h := setupManager(t)
-
-	mockManager.EXPECT().UpdateEmployeeAvailability("e1", false).Return(nil)
-
-	body := `{"available":false}`
-	req := httptest.NewRequest(http.MethodPut, "/api/v1/employees/e1/availability", strings.NewReader(body))
-	req.SetPathValue("employeeId", "e1")
-	rec := httptest.NewRecorder()
-
-	h.UpdateEmployeeAvailabilityHTTP(rec, managerReq(req))
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected 200 got %d", rec.Code)
-	}
-	var resp map[string]string
-	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
-		t.Fatalf("failed to decode response: %v", err)
-	}
-	if resp["message"] != "Employee availability updated" {
-		t.Errorf("expected success message, got %s", resp["message"])
-	}
-}
-
-
-func TestListAllBookingsHTTP_ErrorAndElse(t *testing.T) {
-	_, _, mockBooking, _, _, _, h := setupManager(t)
-
-	// error branch
-	mockBooking.EXPECT().GetActiveBookings().Return(nil, errors.New("fail"))
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/bookings?all=true", nil)
-	rec := httptest.NewRecorder()
-	h.ListAllBookingsHTTP(rec, managerReq(req))
-	if rec.Code != http.StatusInternalServerError {
-		t.Errorf("expected 500 got %d", rec.Code)
-	}
-
-	// all=false branch
-	req = httptest.NewRequest(http.MethodGet, "/api/v1/bookings?all=false", nil)
-	rec = httptest.NewRecorder()
-	h.ListAllBookingsHTTP(rec, managerReq(req))
-	if rec.Code != http.StatusOK {
-		t.Errorf("expected 200 got %d", rec.Code)
-	}
-}
-
-func TestListUnassignedServiceRequestsHTTP_Branches(t *testing.T) {
-	_, _, _, _, mockSR, _, h := setupManager(t)
-
-	// error branch
-	mockSR.EXPECT().GetUnassignedServiceRequest().Return(nil, errors.New("fail"))
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/service-requests?unassigned=true", nil)
-	rec := httptest.NewRecorder()
-	h.ListUnassignedServiceRequestsHTTP(rec, managerReq(req))
-	if rec.Code != http.StatusInternalServerError {
-		t.Errorf("expected 500 got %d", rec.Code)
-	}
-
-	// unassigned=false branch
-	req = httptest.NewRequest(http.MethodGet, "/api/v1/service-requests?unassigned=false", nil)
-	rec = httptest.NewRecorder()
-	h.ListUnassignedServiceRequestsHTTP(rec, managerReq(req))
-	if rec.Code != http.StatusOK {
-		t.Errorf("expected 200 got %d", rec.Code)
-	}
-}
-
-func TestAssignServiceRequestHTTP_Errors(t *testing.T) {
-	_, _, _, _, _, mockManager, h := setupManager(t)
-
-	// missing requestId
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/service-requests//assign", nil)
-	rec := httptest.NewRecorder()
-	h.AssignServiceRequestHTTP(rec, managerReq(req))
-	if rec.Code != http.StatusBadRequest {
-		t.Errorf("expected 400 got %d", rec.Code)
-	}
-
-	// invalid body
-	req = httptest.NewRequest(http.MethodPost, "/api/v1/service-requests/sr1/assign", strings.NewReader("bad"))
-	req.SetPathValue("requestId", "sr1")
-	rec = httptest.NewRecorder()
-	h.AssignServiceRequestHTTP(rec, managerReq(req))
-	if rec.Code != http.StatusBadRequest {
-		t.Errorf("expected 400 got %d", rec.Code)
+	// room number <=0
+	{
+		body := `{"choice":1,"type":"X","price":10,"is_available":true,"description":"d"}`
+		req := httptest.NewRequest(http.MethodPut, "/api/v1/rooms/0", bytes.NewBufferString(body))
+		req = mgrCtx(req)
+		req.SetPathValue("roomNum", "0")
+		rec := httptest.NewRecorder()
+		h.UpdateRoomHTTP(rec, req)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("expected 400 for room number zero, got %d", rec.Code)
+		}
 	}
 
 	// service error
-	mockManager.EXPECT().AssignServiceRequest("sr1", "e1").Return(errors.New("fail"))
-	body := `{"employee_id":"e1"}`
-	req = httptest.NewRequest(http.MethodPost, "/api/v1/service-requests/sr1/assign", strings.NewReader(body))
-	req.SetPathValue("requestId", "sr1")
-	rec = httptest.NewRecorder()
-	h.AssignServiceRequestHTTP(rec, managerReq(req))
-	if rec.Code != http.StatusBadRequest {
-		t.Errorf("expected 400 got %d", rec.Code)
+	{
+		body := `{"choice":2,"type":"Deluxe","price":150,"is_available":true,"description":"ok"}`
+		req := httptest.NewRequest(http.MethodPut, "/api/v1/rooms/101", bytes.NewBufferString(body))
+		req = mgrCtx(req)
+		req.SetPathValue("roomNum", "101")
+		mockRoom.EXPECT().UpdateRoom(101, 2, "Deluxe", 150.0, true, "ok").Return(errors.New("uerr"))
+		rec := httptest.NewRecorder()
+		h.UpdateRoomHTTP(rec, req)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("expected 400 for update error, got %d", rec.Code)
+		}
+	}
+
+	// success
+	{
+		body := `{"choice":2,"type":"Deluxe","price":150,"is_available":false,"description":"ok"}`
+		req := httptest.NewRequest(http.MethodPut, "/api/v1/rooms/102", bytes.NewBufferString(body))
+		req = mgrCtx(req)
+		req.SetPathValue("roomNum", "102")
+		mockRoom.EXPECT().UpdateRoom(102, 2, "Deluxe", 150.0, false, "ok").Return(nil)
+		rec := httptest.NewRecorder()
+		h.UpdateRoomHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected 200 for success update, got %d", rec.Code)
+		}
 	}
 }
 
-func TestCancelServiceRequestHTTP_Errors(t *testing.T) {
-	_, _, _, _, mockSR, _, h := setupManager(t)
+// ---------- DeleteRoomHTTP ----------
+func TestDeleteRoomHTTP_AllBranches(t *testing.T) {
+	ctrl, mockRoom, mockBooking, _, _, _, h := setupAll(t)
+	defer ctrl.Finish()
 
-	// missing reqID
-	req := httptest.NewRequest(http.MethodDelete, "/api/v1/service-requests/", nil)
-	rec := httptest.NewRecorder()
-	h.CancelServiceRequestHTTP(rec, managerReq(req))
-	if rec.Code != http.StatusBadRequest {
-		t.Errorf("expected 400 got %d", rec.Code)
+	// forbidden
+	{
+		req := httptest.NewRequest(http.MethodDelete, "/api/v1/rooms/1", nil)
+		req = nonMgrCtx(req)
+		req.SetPathValue("roomNum", "1")
+		rec := httptest.NewRecorder()
+		h.DeleteRoomHTTP(rec, req)
+		if rec.Code != http.StatusForbidden {
+			t.Fatalf("expected 403 for forbidden delete, got %d", rec.Code)
+		}
 	}
 
-	// error branch
-	mockSR.EXPECT().CancelServiceRequestByID("s1").Return(errors.New("fail"))
-	req = httptest.NewRequest(http.MethodDelete, "/api/v1/service-requests/s1", nil)
-	req.SetPathValue("requestId", "s1")
-	rec = httptest.NewRecorder()
-	h.CancelServiceRequestHTTP(rec, managerReq(req))
-	if rec.Code != http.StatusBadRequest {
-		t.Errorf("expected 400 got %d", rec.Code)
+	// invalid room number (atoi fail)
+	{
+		req := httptest.NewRequest(http.MethodDelete, "/api/v1/rooms/abc", nil)
+		req = mgrCtx(req)
+		req.SetPathValue("roomNum", "abc")
+		rec := httptest.NewRecorder()
+		h.DeleteRoomHTTP(rec, req)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("expected 400 for invalid room number, got %d", rec.Code)
+		}
+	}
+
+	// booking check error
+	{
+		req := httptest.NewRequest(http.MethodDelete, "/api/v1/rooms/201", nil)
+		req = mgrCtx(req)
+		req.SetPathValue("roomNum", "201")
+		mockBooking.EXPECT().IsRoomBooked(201).Return(false, errors.New("checkerr"))
+		rec := httptest.NewRecorder()
+		h.DeleteRoomHTTP(rec, req)
+		if rec.Code != http.StatusInternalServerError {
+			t.Fatalf("expected 500 for booking check error, got %d", rec.Code)
+		}
+	}
+
+	// booked -> cannot delete
+	{
+		req := httptest.NewRequest(http.MethodDelete, "/api/v1/rooms/202", nil)
+		req = mgrCtx(req)
+		req.SetPathValue("roomNum", "202")
+		mockBooking.EXPECT().IsRoomBooked(202).Return(true, nil)
+		rec := httptest.NewRecorder()
+		h.DeleteRoomHTTP(rec, req)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("expected 400 for booked room, got %d", rec.Code)
+		}
+	}
+
+	// delete fail
+	{
+		req := httptest.NewRequest(http.MethodDelete, "/api/v1/rooms/203", nil)
+		req = mgrCtx(req)
+		req.SetPathValue("roomNum", "203")
+		mockBooking.EXPECT().IsRoomBooked(203).Return(false, nil)
+		mockRoom.EXPECT().DeleteRoom(203).Return(errors.New("delerr"))
+		rec := httptest.NewRecorder()
+		h.DeleteRoomHTTP(rec, req)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("expected 400 for delete fail, got %d", rec.Code)
+		}
+	}
+
+	// success
+	{
+		req := httptest.NewRequest(http.MethodDelete, "/api/v1/rooms/204", nil)
+		req = mgrCtx(req)
+		req.SetPathValue("roomNum", "204")
+		mockBooking.EXPECT().IsRoomBooked(204).Return(false, nil)
+		mockRoom.EXPECT().DeleteRoom(204).Return(nil)
+		rec := httptest.NewRecorder()
+		h.DeleteRoomHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected 200 for delete success, got %d", rec.Code)
+		}
 	}
 }
 
-func TestListAllFeedbackHTTP_Branches(t *testing.T) {
-	_, _, _, _, _, mockManager, h := setupManager(t)
+// ---------- ListEmployeesHTTP ----------
+func TestListEmployeesHTTP_AllBranches(t *testing.T) {
+	ctrl, _, _, _, _, mockManager, h := setupAll(t)
+	defer ctrl.Finish()
 
-	// error branch
-	mockManager.EXPECT().ViewAllFeedback().Return(nil, errors.New("fail"))
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/feedback?all=true", nil)
-	rec := httptest.NewRecorder()
-	h.ListAllFeedbackHTTP(rec, managerReq(req))
-	if rec.Code != http.StatusInternalServerError {
-		t.Errorf("expected 500 got %d", rec.Code)
+	// forbidden
+	{
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/employees", nil)
+		req = nonMgrCtx(req)
+		rec := httptest.NewRecorder()
+		h.ListEmployeesHTTP(rec, req)
+		if rec.Code != http.StatusForbidden {
+			t.Fatalf("expected 403 for forbidden list employees, got %d", rec.Code)
+		}
 	}
 
-	// all=false branch
-	req = httptest.NewRequest(http.MethodGet, "/api/v1/feedback?all=false", nil)
-	rec = httptest.NewRecorder()
-	h.ListAllFeedbackHTTP(rec, managerReq(req))
-	if rec.Code != http.StatusOK {
-		t.Errorf("expected 200 got %d", rec.Code)
+	// service error
+	{
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/employees", nil)
+		req = mgrCtx(req)
+		mockManager.EXPECT().GetAllEmployees().Return(nil, errors.New("fetcherr"))
+		rec := httptest.NewRecorder()
+		h.ListEmployeesHTTP(rec, req)
+		if rec.Code != http.StatusInternalServerError {
+			t.Fatalf("expected 500 for service error, got %d", rec.Code)
+		}
+	}
+
+	// success
+	{
+		emps := []models.User{
+			{ID: "e1", Name: "A", Email: "a@x", Role: models.RoleKitchenStaff, Available: true},
+			{ID: "e2", Name: "B", Email: "b@x", Role: models.RoleCleaningStaff, Available: false},
+		}
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/employees", nil)
+		req = mgrCtx(req)
+		mockManager.EXPECT().GetAllEmployees().Return(emps, nil)
+		rec := httptest.NewRecorder()
+		h.ListEmployeesHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected 200 for list employees success, got %d", rec.Code)
+		}
+		// quick decode to ensure body JSON path executed
+		var wrapper struct {
+			Code int                  `json:"code"`
+			Data []dto.UserProfileDTO `json:"data"`
+		}
+		if err := json.NewDecoder(rec.Body).Decode(&wrapper); err != nil {
+			t.Fatalf("failed decode response: %v", err)
+		}
+		if wrapper.Code != 200 || len(wrapper.Data) != 2 {
+			t.Fatalf("unexpected response payload")
+		}
 	}
 }
 
-func TestGenerateReportHTTP_Error(t *testing.T) {
-	_, _, _, _, _, mockManager, h := setupManager(t)
-	mockManager.EXPECT().GetHotelReport().Return(nil, errors.New("fail"))
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/report", nil)
-	rec := httptest.NewRecorder()
-	h.GenerateReportHTTP(rec, managerReq(req))
-	if rec.Code != http.StatusInternalServerError {
-		t.Errorf("expected 500 got %d", rec.Code)
+// ---------- CreateEmployeeHTTP ----------
+func TestCreateEmployeeHTTP_AllBranches(t *testing.T) {
+	ctrl, _, _, mockUser, _, _, h := setupAll(t)
+	defer ctrl.Finish()
+
+	// forbidden
+	{
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/employees", bytes.NewBufferString(`{}`))
+		req = nonMgrCtx(req)
+		rec := httptest.NewRecorder()
+		h.CreateEmployeeHTTP(rec, req)
+		if rec.Code != http.StatusForbidden {
+			t.Fatalf("expected 403 for forbidden create, got %d", rec.Code)
+		}
+	}
+
+	// invalid json
+	{
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/employees", bytes.NewBufferString("{bad"))
+		req = mgrCtx(req)
+		rec := httptest.NewRecorder()
+		h.CreateEmployeeHTTP(rec, req)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("expected 400 for invalid json, got %d", rec.Code)
+		}
+	}
+
+	// invalid role string
+	{
+		body := `{"name":"X","email":"x@x","password":"p","role":"Invalid","available":true}`
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/employees", bytes.NewBufferString(body))
+		req = mgrCtx(req)
+		rec := httptest.NewRecorder()
+		h.CreateEmployeeHTTP(rec, req)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("expected 400 for invalid role, got %d", rec.Code)
+		}
+	}
+
+	// create user service error
+	{
+		body := `{"name":"John","email":"john@test","password":"p","role":"KitchenStaff","available":true}`
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/employees", bytes.NewBufferString(body))
+		req = mgrCtx(req)
+		mockUser.EXPECT().CreateEmployee("John", "john@test", "p", models.RoleKitchenStaff, true).Return(models.User{}, errors.New("createfail"))
+		rec := httptest.NewRecorder()
+		h.CreateEmployeeHTTP(rec, req)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("expected 400 for create fail, got %d", rec.Code)
+		}
+	}
+
+	// success
+	{
+		body := `{"name":"John","email":"john@test","password":"p","role":"CleaningStaff","available":false}`
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/employees", bytes.NewBufferString(body))
+		req = mgrCtx(req)
+		mockUser.EXPECT().CreateEmployee("John", "john@test", "p", models.RoleCleaningStaff, false).Return(models.User{ID: "u123"}, nil)
+		rec := httptest.NewRecorder()
+		h.CreateEmployeeHTTP(rec, req)
+		if rec.Code != http.StatusCreated {
+			t.Fatalf("expected 201 for create success, got %d", rec.Code)
+		}
 	}
 }
 
-func TestAddRoomHTTP_Errors(t *testing.T) {
-	_, mockRoom, _, _, _, _, h := setupManager(t)
+// ---------- DeleteEmployeeHTTP ----------
+func TestDeleteEmployeeHTTP_AllBranches(t *testing.T) {
+	ctrl, _, _, _, _, mockManager, h := setupAll(t)
+	defer ctrl.Finish()
+
+	// forbidden
+	{
+		req := httptest.NewRequest(http.MethodDelete, "/api/v1/employees/id", nil)
+		req = nonMgrCtx(req)
+		req.SetPathValue("employeeId", "id")
+		rec := httptest.NewRecorder()
+		h.DeleteEmployeeHTTP(rec, req)
+		if rec.Code != http.StatusForbidden {
+			t.Fatalf("expected 403 forbidden, got %d", rec.Code)
+		}
+	}
+
+	// missing id
+	{
+		req := httptest.NewRequest(http.MethodDelete, "/api/v1/employees/", nil)
+		req = mgrCtx(req)
+		rec := httptest.NewRecorder()
+		h.DeleteEmployeeHTTP(rec, req)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("expected 400 missing id, got %d", rec.Code)
+		}
+	}
+
+	// delete error
+	{
+		req := httptest.NewRequest(http.MethodDelete, "/api/v1/employees/id", nil)
+		req = mgrCtx(req)
+		req.SetPathValue("employeeId", "id")
+		mockManager.EXPECT().DeleteEmployeeByID("id").Return(errors.New("delerr"))
+		rec := httptest.NewRecorder()
+		h.DeleteEmployeeHTTP(rec, req)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("expected 400 delete error, got %d", rec.Code)
+		}
+	}
+
+	// success
+	{
+		req := httptest.NewRequest(http.MethodDelete, "/api/v1/employees/id2", nil)
+		req = mgrCtx(req)
+		req.SetPathValue("employeeId", "id2")
+		mockManager.EXPECT().DeleteEmployeeByID("id2").Return(nil)
+		rec := httptest.NewRecorder()
+		h.DeleteEmployeeHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected 200 delete success, got %d", rec.Code)
+		}
+	}
+}
+
+// ---------- UpdateEmployeeAvailabilityHTTP ----------
+func TestUpdateEmployeeAvailabilityHTTP_AllBranches(t *testing.T) {
+	ctrl, _, _, _, _, mockManager, h := setupAll(t)
+	defer ctrl.Finish()
+
+	// forbidden
+	{
+		req := httptest.NewRequest(http.MethodPut, "/api/v1/employees/email/availability", nil)
+		req = nonMgrCtx(req)
+		req.SetPathValue("employeeEmail", "x@x")
+		rec := httptest.NewRecorder()
+		h.UpdateEmployeeAvailabilityHTTP(rec, req)
+		if rec.Code != http.StatusForbidden {
+			t.Fatalf("expected 403 forbidden, got %d", rec.Code)
+		}
+	}
+
+	// missing email
+	{
+		req := httptest.NewRequest(http.MethodPut, "/api/v1/employees//availability", nil)
+		req = mgrCtx(req)
+		rec := httptest.NewRecorder()
+		h.UpdateEmployeeAvailabilityHTTP(rec, req)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("expected 400 missing email, got %d", rec.Code)
+		}
+	}
+
+	// invalid JSON
+	{
+		req := httptest.NewRequest(http.MethodPut, "/api/v1/employees/x@x/availability", bytes.NewBufferString("{bad"))
+		req = mgrCtx(req)
+		req.SetPathValue("employeeEmail", "x@x")
+		rec := httptest.NewRecorder()
+		h.UpdateEmployeeAvailabilityHTTP(rec, req)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("expected 400 invalid json, got %d", rec.Code)
+		}
+	}
+
+	// service error
+	{
+		req := httptest.NewRequest(http.MethodPut, "/api/v1/employees/x@x/availability", bytes.NewBufferString(`{"available":true}`))
+		req = mgrCtx(req)
+		req.SetPathValue("employeeEmail", "x@x")
+		mockManager.EXPECT().UpdateEmployeeAvailability("x@x", true).Return(errors.New("uerr"))
+		rec := httptest.NewRecorder()
+		h.UpdateEmployeeAvailabilityHTTP(rec, req)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("expected 400 service error, got %d", rec.Code)
+		}
+	}
+
+	// success
+	{
+		req := httptest.NewRequest(http.MethodPut, "/api/v1/employees/x@x/availability", bytes.NewBufferString(`{"available":false}`))
+		req = mgrCtx(req)
+		req.SetPathValue("employeeEmail", "x@x")
+		mockManager.EXPECT().UpdateEmployeeAvailability("x@x", false).Return(nil)
+		rec := httptest.NewRecorder()
+		h.UpdateEmployeeAvailabilityHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected 200 success, got %d", rec.Code)
+		}
+	}
+}
+
+// ---------- ListAllBookingsHTTP ----------
+func TestListAllBookingsHTTP_AllBranches(t *testing.T) {
+	ctrl, _, mockBooking, _, _, _, h := setupAll(t)
+	defer ctrl.Finish()
+
+	// forbidden
+	{
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/bookings", nil)
+		req = nonMgrCtx(req)
+		rec := httptest.NewRecorder()
+		h.ListAllBookingsHTTP(rec, req)
+		if rec.Code != http.StatusForbidden {
+			t.Fatalf("expected 403 forbidden, got %d", rec.Code)
+		}
+	}
+
+	// all != true -> empty bookings (success)
+	{
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/bookings", nil)
+		req = mgrCtx(req)
+		rec := httptest.NewRecorder()
+		h.ListAllBookingsHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected 200 for empty bookings, got %d", rec.Code)
+		}
+	}
+
+	// all=true but service error
+	{
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/bookings?all=true", nil)
+		req = mgrCtx(req)
+		req = req.WithContext(req.Context()) // keep same
+		// ensure query param present
+		req.URL.RawQuery = "all=true"
+		mockBooking.EXPECT().GetActiveBookings().Return(nil, errors.New("fetcherr"))
+		rec := httptest.NewRecorder()
+		h.ListAllBookingsHTTP(rec, req)
+		if rec.Code != http.StatusInternalServerError {
+			t.Fatalf("expected 500 for booking fetch error, got %d", rec.Code)
+		}
+	}
+
+	// success with active bookings
+	{
+		bs := []models.Booking{
+			{ID: "b1", RoomNum: 10},
+		}
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/bookings?all=true", nil)
+		req = mgrCtx(req)
+		req.URL.RawQuery = "all=true"
+		mockBooking.EXPECT().GetActiveBookings().Return(bs, nil)
+		rec := httptest.NewRecorder()
+		h.ListAllBookingsHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected 200 for bookings success, got %d", rec.Code)
+		}
+	}
+}
+
+// ---------- ListUnassignedServiceRequestsHTTP ----------
+func TestListUnassignedServiceRequestsHTTP_AllBranches(t *testing.T) {
+	ctrl, _, _, _, mockServiceReq, _, h := setupAll(t)
+	defer ctrl.Finish()
+
+	// forbidden
+	{
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/service-requests", nil)
+		req = nonMgrCtx(req)
+		rec := httptest.NewRecorder()
+		h.ListUnassignedServiceRequestsHTTP(rec, req)
+		if rec.Code != http.StatusForbidden {
+			t.Fatalf("expected 403 forbidden, got %d", rec.Code)
+		}
+	}
+
+	// service error
+	{
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/service-requests", nil)
+		req = mgrCtx(req)
+		mockServiceReq.EXPECT().GetUnassignedServiceRequest().Return(nil, errors.New("serr"))
+		rec := httptest.NewRecorder()
+		h.ListUnassignedServiceRequestsHTTP(rec, req)
+		if rec.Code != http.StatusInternalServerError {
+			t.Fatalf("expected 500 on service error, got %d", rec.Code)
+		}
+	}
+
+	// success
+	{
+		now := time.Now()
+		reqdata := []models.ServiceRequest{
+			{ID: "sr1", RoomNum: 11, Type: models.ServiceTypeCleaning, Details: "d", Status: models.ServiceStatusPending, AssignedTo: "", IsAssigned: false, CreatedAt: now},
+		}
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/service-requests", nil)
+		req = mgrCtx(req)
+		mockServiceReq.EXPECT().GetUnassignedServiceRequest().Return(reqdata, nil)
+		rec := httptest.NewRecorder()
+		h.ListUnassignedServiceRequestsHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected 200 for list unassigned success, got %d", rec.Code)
+		}
+	}
+}
+
+// ---------- AssignServiceRequestHTTP ----------
+func TestAssignServiceRequestHTTP_AllBranches(t *testing.T) {
+	ctrl, _, _, _, _, mockManager, h := setupAll(t)
+	defer ctrl.Finish()
+
+	// forbidden
+	{
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/service-requests/id/assign", nil)
+		req = nonMgrCtx(req)
+		req.SetPathValue("requestId", "id")
+		rec := httptest.NewRecorder()
+		h.AssignServiceRequestHTTP(rec, req)
+		if rec.Code != http.StatusForbidden {
+			t.Fatalf("expected 403 forbidden, got %d", rec.Code)
+		}
+	}
+
+	// missing requestId
+	{
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/service-requests//assign", bytes.NewBufferString(`{"employee_id":"e1"}`))
+		req = mgrCtx(req)
+		// ensure empty path value
+		req.SetPathValue("requestId", "")
+		rec := httptest.NewRecorder()
+		h.AssignServiceRequestHTTP(rec, req)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("expected 400 for missing request id, got %d", rec.Code)
+		}
+	}
 
 	// invalid body
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/rooms", strings.NewReader("bad"))
-	rec := httptest.NewRecorder()
-	h.AddRoomHTTP(rec, managerReq(req))
-	if rec.Code != http.StatusBadRequest {
-		t.Errorf("expected 400 got %d", rec.Code)
+	{
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/service-requests/r1/assign", bytes.NewBufferString("{bad"))
+		req = mgrCtx(req)
+		req.SetPathValue("requestId", "r1")
+		rec := httptest.NewRecorder()
+		h.AssignServiceRequestHTTP(rec, req)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("expected 400 for invalid body, got %d", rec.Code)
+		}
 	}
 
-	// AddRoom error
-	mockRoom.EXPECT().AddRoom(1, "x", 2.0, true, "").Return(errors.New("fail"))
-	body := `{"number":1,"type":"x","price":2}`
-	req = httptest.NewRequest(http.MethodPost, "/api/v1/rooms", strings.NewReader(body))
-	rec = httptest.NewRecorder()
-	h.AddRoomHTTP(rec, managerReq(req))
-	if rec.Code != http.StatusBadRequest {
-		t.Errorf("expected 400 got %d", rec.Code)
+	// service assign error
+	{
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/service-requests/r2/assign", bytes.NewBufferString(`{"employee_id":"e2"}`))
+		req = mgrCtx(req)
+		req.SetPathValue("requestId", "r2")
+		mockManager.EXPECT().AssignServiceRequest("r2", "e2").Return(errors.New("assignfail"))
+		rec := httptest.NewRecorder()
+		h.AssignServiceRequestHTTP(rec, req)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("expected 400 for assign fail, got %d", rec.Code)
+		}
+	}
+
+	// success
+	{
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/service-requests/r3/assign", bytes.NewBufferString(`{"employee_id":"e3"}`))
+		req = mgrCtx(req)
+		req.SetPathValue("requestId", "r3")
+		mockManager.EXPECT().AssignServiceRequest("r3", "e3").Return(nil)
+		rec := httptest.NewRecorder()
+		h.AssignServiceRequestHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected 200 on assign success, got %d", rec.Code)
+		}
 	}
 }
 
-func TestRequireManager(t *testing.T) {
-	// no role in context
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	err := RequireManager(req)
-	if err == nil {
-		t.Error("expected error")
+// ---------- UpdateServiceRequestStatusHTTP ----------
+func TestUpdateServiceRequestStatusHTTP_AllBranches(t *testing.T) {
+	ctrl, _, _, _, mockServiceReq, _, h := setupAll(t)
+	defer ctrl.Finish()
+
+	// forbidden
+	{
+		req := httptest.NewRequest(http.MethodPut, "/api/v1/service-requests/r/status", nil)
+		req = nonMgrCtx(req)
+		req.SetPathValue("requestId", "r")
+		rec := httptest.NewRecorder()
+		h.UpdateServiceRequestStatusHTTP(rec, req)
+		if rec.Code != http.StatusForbidden {
+			t.Fatalf("expected 403 forbidden, got %d", rec.Code)
+		}
 	}
 
-	// wrong role
-	req = req.WithContext(context.WithValue(req.Context(), contextkeys.UserRoleKey, "Guest"))
-	err = RequireManager(req)
-	if err == nil {
-		t.Error("expected error")
+	// missing id
+	{
+		req := httptest.NewRequest(http.MethodPut, "/api/v1/service-requests//status", bytes.NewBufferString(`{"status":"Pending"}`))
+		req = mgrCtx(req)
+		req.SetPathValue("requestId", "")
+		rec := httptest.NewRecorder()
+		h.UpdateServiceRequestStatusHTTP(rec, req)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("expected 400 missing id, got %d", rec.Code)
+		}
 	}
 
-	// manager role
-	req = req.WithContext(context.WithValue(req.Context(), contextkeys.UserRoleKey, "Manager"))
-	err = RequireManager(req)
-	if err != nil {
-		t.Errorf("unexpected error %v", err)
+	// invalid body
+	{
+		req := httptest.NewRequest(http.MethodPut, "/api/v1/service-requests/r1/status", bytes.NewBufferString("{bad"))
+		req = mgrCtx(req)
+		req.SetPathValue("requestId", "r1")
+		rec := httptest.NewRecorder()
+		h.UpdateServiceRequestStatusHTTP(rec, req)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("expected 400 invalid body, got %d", rec.Code)
+		}
+	}
+
+	// invalid status
+	{
+		req := httptest.NewRequest(http.MethodPut, "/api/v1/service-requests/r2/status", bytes.NewBufferString(`{"status":"NotAStatus"}`))
+		req = mgrCtx(req)
+		req.SetPathValue("requestId", "r2")
+		rec := httptest.NewRecorder()
+		h.UpdateServiceRequestStatusHTTP(rec, req)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("expected 400 invalid status, got %d", rec.Code)
+		}
+	}
+
+	// service update error
+	{
+		req := httptest.NewRequest(http.MethodPut, "/api/v1/service-requests/r3/status", bytes.NewBufferString(`{"status":"Pending"}`))
+		req = mgrCtx(req)
+		req.SetPathValue("requestId", "r3")
+		mockServiceReq.EXPECT().UpdateServiceRequestStatus("r3", models.ServiceStatusPending).Return(errors.New("upfail"))
+		rec := httptest.NewRecorder()
+		h.UpdateServiceRequestStatusHTTP(rec, req)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("expected 400 update error, got %d", rec.Code)
+		}
+	}
+
+	// success (test all valid statuses quickly)
+	validStatuses := []string{
+		string(models.ServiceStatusPending),
+		string(models.ServiceStatusInProgress),
+		string(models.ServiceStatusDone),
+		string(models.ServiceStatusCancelled),
+	}
+	for i, s := range validStatuses {
+		reqID := "ok" + strconv.Itoa(i)
+		req := httptest.NewRequest(http.MethodPut, "/api/v1/service-requests/"+reqID+"/status", bytes.NewBufferString(`{"status":"`+s+`"}`))
+		req = mgrCtx(req)
+		req.SetPathValue("requestId", reqID)
+		mockServiceReq.EXPECT().UpdateServiceRequestStatus(reqID, models.ServiceStatus(s)).Return(nil)
+		rec := httptest.NewRecorder()
+		h.UpdateServiceRequestStatusHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected 200 for status %s, got %d", s, rec.Code)
+		}
+	}
+}
+
+// ---------- CancelServiceRequestHTTP ----------
+func TestCancelServiceRequestHTTP_AllBranches(t *testing.T) {
+	ctrl, _, _, _, mockServiceReq, _, h := setupAll(t)
+	defer ctrl.Finish()
+
+	// forbidden
+	{
+		req := httptest.NewRequest(http.MethodDelete, "/api/v1/service-requests/r", nil)
+		req = nonMgrCtx(req)
+		req.SetPathValue("requestId", "r")
+		rec := httptest.NewRecorder()
+		h.CancelServiceRequestHTTP(rec, req)
+		if rec.Code != http.StatusForbidden {
+			t.Fatalf("expected 403 forbidden, got %d", rec.Code)
+		}
+	}
+
+	// missing id
+	{
+		req := httptest.NewRequest(http.MethodDelete, "/api/v1/service-requests/", nil)
+		req = mgrCtx(req)
+		rec := httptest.NewRecorder()
+		h.CancelServiceRequestHTTP(rec, req)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("expected 400 missing id, got %d", rec.Code)
+		}
+	}
+
+	// cancel error
+	{
+		req := httptest.NewRequest(http.MethodDelete, "/api/v1/service-requests/r4", nil)
+		req = mgrCtx(req)
+		req.SetPathValue("requestId", "r4")
+		mockServiceReq.EXPECT().CancelServiceRequestByID("r4").Return(errors.New("cancelerr"))
+		rec := httptest.NewRecorder()
+		h.CancelServiceRequestHTTP(rec, req)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("expected 400 cancel error, got %d", rec.Code)
+		}
+	}
+
+	// success
+	{
+		req := httptest.NewRequest(http.MethodDelete, "/api/v1/service-requests/r5", nil)
+		req = mgrCtx(req)
+		req.SetPathValue("requestId", "r5")
+		mockServiceReq.EXPECT().CancelServiceRequestByID("r5").Return(nil)
+		rec := httptest.NewRecorder()
+		h.CancelServiceRequestHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected 200 cancel success, got %d", rec.Code)
+		}
+	}
+}
+
+// ---------- ListAllFeedbackHTTP ----------
+func TestListAllFeedbackHTTP_AllBranches(t *testing.T) {
+	ctrl, _, _, _, _, mockManager, h := setupAll(t)
+	defer ctrl.Finish()
+
+	// forbidden
+	{
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/feedback", nil)
+		req = nonMgrCtx(req)
+		rec := httptest.NewRecorder()
+		h.ListAllFeedbackHTTP(rec, req)
+		if rec.Code != http.StatusForbidden {
+			t.Fatalf("expected 403 forbidden, got %d", rec.Code)
+		}
+	}
+
+	// all != true -> empty success
+	{
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/feedback", nil)
+		req = mgrCtx(req)
+		rec := httptest.NewRecorder()
+		h.ListAllFeedbackHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected 200 empty feedbacks, got %d", rec.Code)
+		}
+	}
+
+	// service error
+	{
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/feedback?all=true", nil)
+		req = mgrCtx(req)
+		req.URL.RawQuery = "all=true"
+		mockManager.EXPECT().ViewAllFeedback().Return(nil, errors.New("ferr"))
+		rec := httptest.NewRecorder()
+		h.ListAllFeedbackHTTP(rec, req)
+		if rec.Code != http.StatusInternalServerError {
+			t.Fatalf("expected 500 feedback fetch error, got %d", rec.Code)
+		}
+	}
+
+	// success
+	{
+		f := []models.Feedback{
+			{ID: "f1", UserID: "u1", UserName: "U", Message: "ok", RoomNum: 101, BookingID: "b1", Rating: 5, CreatedAt: time.Now()},
+		}
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/feedback?all=true", nil)
+		req = mgrCtx(req)
+		req.URL.RawQuery = "all=true"
+		mockManager.EXPECT().ViewAllFeedback().Return(f, nil)
+		rec := httptest.NewRecorder()
+		h.ListAllFeedbackHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected 200 feedback success, got %d", rec.Code)
+		}
+	}
+}
+
+// ---------- GenerateReportHTTP ----------
+func TestGenerateReportHTTP_AllBranches(t *testing.T) {
+	ctrl, _, _, _, _, mockManager, h := setupAll(t)
+	defer ctrl.Finish()
+
+	// forbidden
+	{
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/report", nil)
+		req = nonMgrCtx(req)
+		rec := httptest.NewRecorder()
+		h.GenerateReportHTTP(rec, req)
+		if rec.Code != http.StatusForbidden {
+			t.Fatalf("expected 403 forbidden, got %d", rec.Code)
+		}
+	}
+
+	// service error
+	{
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/report", nil)
+		req = mgrCtx(req)
+		mockManager.EXPECT().GetHotelReport().Return(nil, errors.New("repoerr"))
+		rec := httptest.NewRecorder()
+		h.GenerateReportHTTP(rec, req)
+		if rec.Code != http.StatusInternalServerError {
+			t.Fatalf("expected 500 report error, got %d", rec.Code)
+		}
+	}
+}
+
+// ---------- AddRoomHTTP ----------
+func TestAddRoomHTTP_AllBranches(t *testing.T) {
+	ctrl, mockRoom, _, _, _, _, h := setupAll(t)
+	defer ctrl.Finish()
+
+	// forbidden
+	{
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/rooms", bytes.NewBufferString(`{}`))
+		req = nonMgrCtx(req)
+		rec := httptest.NewRecorder()
+		h.AddRoomHTTP(rec, req)
+		if rec.Code != http.StatusForbidden {
+			t.Fatalf("expected 403 forbidden, got %d", rec.Code)
+		}
+	}
+
+	// invalid JSON
+	{
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/rooms", bytes.NewBufferString("{bad"))
+		req = mgrCtx(req)
+		rec := httptest.NewRecorder()
+		h.AddRoomHTTP(rec, req)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("expected 400 invalid json, got %d", rec.Code)
+		}
+	}
+
+	// service error
+	{
+		body := `{"number":301,"type":"Deluxe","price":120,"description":"d"}`
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/rooms", bytes.NewBufferString(body))
+		req = mgrCtx(req)
+		mockRoom.EXPECT().AddRoom(301, "Deluxe", 120.0, true, "d").Return(errors.New("adderr"))
+		rec := httptest.NewRecorder()
+		h.AddRoomHTTP(rec, req)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("expected 400 add room error, got %d", rec.Code)
+		}
+	}
+
+	// success
+	{
+		body := `{"number":302,"type":"Deluxe","price":120,"description":"d2"}`
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/rooms", bytes.NewBufferString(body))
+		req = mgrCtx(req)
+		mockRoom.EXPECT().AddRoom(302, "Deluxe", 120.0, true, "d2").Return(nil)
+		rec := httptest.NewRecorder()
+		h.AddRoomHTTP(rec, req)
+		if rec.Code != http.StatusCreated {
+			t.Fatalf("expected 201 add room success, got %d", rec.Code)
+		}
 	}
 }

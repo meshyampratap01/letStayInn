@@ -87,30 +87,15 @@ func (ms *ManagerService) GetTotalEmployees() (int, error) {
 	return count, nil
 }
 
-func (ms *ManagerService) DeleteEmployeeByEmail(email string) error {
-	users, err := ms.userRepo.GetAllUsers()
+func (ms *ManagerService) DeleteEmployeeByID(id string) error {
+	user, err := ms.userRepo.GetUserByID(id)
 	if err != nil {
-		return err
-	}
-
-	found := false
-	var updatedUsers []models.User
-	for _, user := range users {
-		if user.Email == email {
-			if user.Role != models.RoleKitchenStaff && user.Role != models.RoleCleaningStaff {
-				return errors.New("user with this email is not an employee")
-			}
-			found = true
-			continue
-		}
-		updatedUsers = append(updatedUsers, user)
-	}
-
-	if !found {
 		return errors.New("employee not found")
 	}
-
-	return ms.userRepo.SaveAllUsers(updatedUsers)
+	if user.Role != models.RoleKitchenStaff && user.Role != models.RoleCleaningStaff {
+		return errors.New("user with this id is not an employee")
+	}
+	return ms.userRepo.DeleteUserByID(id)
 }
 
 func (ms *ManagerService) GetAvailableStaffByTaskType(taskType string) ([]models.User, error) {

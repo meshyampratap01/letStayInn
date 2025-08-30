@@ -7,10 +7,11 @@ import (
 
 	"github.com/meshyampratap01/letStayInn/internal/logger"
 	"go.uber.org/zap"
-	
+
 	contextkeys "github.com/meshyampratap01/letStayInn/internal/contextKeys"
 	"github.com/meshyampratap01/letStayInn/internal/dto"
 	"github.com/meshyampratap01/letStayInn/internal/models"
+	"github.com/meshyampratap01/letStayInn/internal/response"
 	"github.com/meshyampratap01/letStayInn/internal/services/bookingService"
 	"github.com/meshyampratap01/letStayInn/internal/services/roomService"
 )
@@ -29,6 +30,7 @@ func NewBookingHandler(
 		roomService:    roomService,
 	}
 }
+
 // GET /api/v1/rooms (returns all rooms for manager, only available rooms for others)
 func (h *BookingHandler) GetRoomsByRoleHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -48,7 +50,10 @@ func (h *BookingHandler) GetRoomsByRoleHTTP(w http.ResponseWriter, r *http.Reque
 	}
 	if err != nil {
 		logger.Log.Error("Failed to fetch rooms", zap.Error(err))
-		http.Error(w, "Failed to fetch rooms", http.StatusInternalServerError)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		resp := response.NewErrorResponse(http.StatusInternalServerError, "Failed to fetch rooms")
+		json.NewEncoder(w).Encode(resp)
 		return
 	}
 	logger.Log.Info("Rooms fetched", zap.String("role", roleStr), zap.Int("count", len(rooms)))
@@ -63,7 +68,7 @@ func (h *BookingHandler) GetRoomsByRoleHTTP(w http.ResponseWriter, r *http.Reque
 		})
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(resp)
+	json.NewEncoder(w).Encode(response.NewSuccessResponse(http.StatusOK, "Rooms fetched successfully", resp))
 }
 
 // POST /api/v1/bookings
@@ -75,30 +80,44 @@ func (h *BookingHandler) BookRoomHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		logger.Log.Error("Invalid booking request body", zap.Error(err))
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		resp := response.NewErrorResponse(http.StatusBadRequest, "Invalid request body")
+		json.NewEncoder(w).Encode(resp)
 		return
 	}
 	ctx := r.Context()
 	userIDVal := ctx.Value(contextkeys.UserIDKey)
 	userID, ok := userIDVal.(string)
 	if !ok || userID == "" {
-		http.Error(w, "User ID not found in context", http.StatusUnauthorized)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		resp := response.NewErrorResponse(http.StatusUnauthorized, "User ID not found in context")
+		json.NewEncoder(w).Encode(resp)
 		return
 	}
 	if req.RoomNumber <= 0 || req.CheckInDate == "" || req.CheckOutDate == "" {
 		logger.Log.Warn("Invalid booking request", zap.Any("request", req))
-		http.Error(w, "Invalid booking request", http.StatusBadRequest)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		resp := response.NewErrorResponse(http.StatusBadRequest, "Invalid booking request")
+		json.NewEncoder(w).Encode(resp)
 		return
 	}
 	err := h.bookingService.BookRoom(ctx, req.RoomNumber, req.CheckInDate, req.CheckOutDate)
 	if err != nil {
 		logger.Log.Error("Failed to book room", zap.Error(err), zap.String("userID", userID))
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		resp := response.NewErrorResponse(http.StatusBadRequest, err.Error())
+		json.NewEncoder(w).Encode(resp)
 		return
 	}
 	logger.Log.Info("Room booked successfully", zap.String("userID", userID), zap.Int("roomNumber", req.RoomNumber))
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(map[string]string{"message": "Room booked successfully"})
+	resp := response.NewSuccessResponse(http.StatusCreated, "Room booked successfully", nil)
+	json.NewEncoder(w).Encode(resp)
 }
 
 // GET /api/v1/bookings (returns all bookings for manager, user bookings for others)
@@ -115,7 +134,10 @@ func (h *BookingHandler) GetBookingsByRoleHTTP(w http.ResponseWriter, r *http.Re
 	}
 	if err != nil {
 		logger.Log.Error("Failed to fetch bookings", zap.Error(err))
-		http.Error(w, "Failed to fetch bookings", http.StatusInternalServerError)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		resp := response.NewErrorResponse(http.StatusInternalServerError, "Failed to fetch bookings")
+		json.NewEncoder(w).Encode(resp)
 		return
 	}
 	logger.Log.Info("Bookings fetched", zap.String("role", roleStr), zap.Int("count", len(bookings)))
@@ -130,37 +152,41 @@ func (h *BookingHandler) GetBookingsByRoleHTTP(w http.ResponseWriter, r *http.Re
 		})
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(resp)
+	json.NewEncoder(w).Encode(response.NewSuccessResponse(http.StatusOK, "Bookings fetched successfully", resp))
 }
 
 // DELETE /api/v1/bookings/{id}
 func (h *BookingHandler) CancelBookingHTTP(w http.ResponseWriter, r *http.Request) {
-	// Extract booking ID from URL
-	idStr := strings.TrimPrefix(r.URL.Path, "/api/v1/bookings/")
-	if idStr == "" {
-		http.Error(w, "Booking ID required", http.StatusBadRequest)
+	bookingID := r.PathValue("id")
+	if bookingID == "" {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		resp := response.NewErrorResponse(http.StatusBadRequest, "Booking ID required")
+		json.NewEncoder(w).Encode(resp)
 		return
 	}
 	ctx := r.Context()
 	userIDVal := ctx.Value(contextkeys.UserIDKey)
 	userID, ok := userIDVal.(string)
 	if !ok || userID == "" {
-		http.Error(w, "User ID not found in context", http.StatusUnauthorized)
-		return
-	}
-	bookingID := strings.TrimSpace(idStr)
-	if bookingID == "" {
-		http.Error(w, "Invalid booking ID", http.StatusBadRequest)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		resp := response.NewErrorResponse(http.StatusUnauthorized, "User ID not found in context")
+		json.NewEncoder(w).Encode(resp)
 		return
 	}
 	err := h.bookingService.CancelBooking(ctx, bookingID)
 	if err != nil {
 		logger.Log.Error("Failed to cancel booking", zap.Error(err), zap.String("userID", userID), zap.String("bookingID", bookingID))
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		resp := response.NewErrorResponse(http.StatusBadRequest, err.Error())
+		json.NewEncoder(w).Encode(resp)
 		return
 	}
 	logger.Log.Info("Booking cancelled successfully", zap.String("userID", userID), zap.String("bookingID", bookingID))
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"message": "Booking cancelled successfully"})
+	resp := response.NewSuccessResponse(http.StatusOK, "Booking cancelled successfully", nil)
+	json.NewEncoder(w).Encode(resp)
 }
-

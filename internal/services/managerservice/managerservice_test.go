@@ -65,35 +65,35 @@ func TestGetTotalEmployees_Success(t *testing.T) {
 	}
 }
 
-func TestDeleteEmployeeByEmail_Success(t *testing.T) {
+func TestDeleteEmployeeByID_Success(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	service, mockUserRepo, _, _, _, _ := setupManagerService(ctrl)
-	users := []models.User{{Email: "a@b.com", Role: models.RoleKitchenStaff}, {Email: "b@c.com", Role: models.RoleManager}}
-	mockUserRepo.EXPECT().GetAllUsers().Return(users, nil)
-	mockUserRepo.EXPECT().SaveAllUsers([]models.User{{Email: "b@c.com", Role: models.RoleManager}}).Return(nil)
-	if err := service.DeleteEmployeeByEmail("a@b.com"); err != nil {
+	user := &models.User{ID: "emp1", Role: models.RoleKitchenStaff}
+	mockUserRepo.EXPECT().GetUserByID("emp1").Return(user, nil)
+	mockUserRepo.EXPECT().DeleteUserByID("emp1").Return(nil)
+	if err := service.DeleteEmployeeByID("emp1"); err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
 }
 
-func TestDeleteEmployeeByEmail_NotEmployee(t *testing.T) {
+func TestDeleteEmployeeByID_NotEmployee(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	service, mockUserRepo, _, _, _, _ := setupManagerService(ctrl)
-	users := []models.User{{Email: "a@b.com", Role: models.RoleManager}}
-	mockUserRepo.EXPECT().GetAllUsers().Return(users, nil)
-	if err := service.DeleteEmployeeByEmail("a@b.com"); err == nil || err.Error() != "user with this email is not an employee" {
+	user := &models.User{ID: "emp2", Role: models.RoleManager}
+	mockUserRepo.EXPECT().GetUserByID("emp2").Return(user, nil)
+	if err := service.DeleteEmployeeByID("emp2"); err == nil || err.Error() != "user with this id is not an employee" {
 		t.Errorf("expected not employee error, got %v", err)
 	}
 }
 
-func TestDeleteEmployeeByEmail_NotFound(t *testing.T) {
+func TestDeleteEmployeeByID_NotFound(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	service, mockUserRepo, _, _, _, _ := setupManagerService(ctrl)
-	mockUserRepo.EXPECT().GetAllUsers().Return([]models.User{}, nil)
-	if err := service.DeleteEmployeeByEmail("x@y.com"); err == nil || err.Error() != "employee not found" {
+	mockUserRepo.EXPECT().GetUserByID("emp3").Return(nil, errors.New("not found"))
+	if err := service.DeleteEmployeeByID("emp3"); err == nil || err.Error() != "employee not found" {
 		t.Errorf("expected not found error, got %v", err)
 	}
 }
@@ -195,25 +195,25 @@ func TestGetTotalEmployees_GetAllUsersError(t *testing.T) {
 	}
 }
 
-func TestDeleteEmployeeByEmail_GetAllUsersError(t *testing.T) {
+func TestDeleteEmployeeByID_GetUserByIDError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	service, mockUserRepo, _, _, _, _ := setupManagerService(ctrl)
-	mockUserRepo.EXPECT().GetAllUsers().Return(nil, errors.New("db error"))
-	if err := service.DeleteEmployeeByEmail("a@b.com"); err == nil || err.Error() != "db error" {
-		t.Errorf("expected db error, got %v", err)
+	mockUserRepo.EXPECT().GetUserByID("emp4").Return(nil, errors.New("db error"))
+	if err := service.DeleteEmployeeByID("emp4"); err == nil || err.Error() != "employee not found" {
+		t.Errorf("expected employee not found error, got %v", err)
 	}
 }
 
-func TestDeleteEmployeeByEmail_SaveAllUsersError(t *testing.T) {
+func TestDeleteEmployeeByID_DeleteUserByIDError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	service, mockUserRepo, _, _, _, _ := setupManagerService(ctrl)
-	users := []models.User{{Email: "a@b.com", Role: models.RoleKitchenStaff}, {Email: "b@c.com", Role: models.RoleManager}}
-	mockUserRepo.EXPECT().GetAllUsers().Return(users, nil)
-	mockUserRepo.EXPECT().SaveAllUsers(gomock.Any()).Return(errors.New("save error"))
-	if err := service.DeleteEmployeeByEmail("a@b.com"); err == nil || err.Error() != "save error" {
-		t.Errorf("expected save error, got %v", err)
+	user := &models.User{ID: "emp5", Role: models.RoleKitchenStaff}
+	mockUserRepo.EXPECT().GetUserByID("emp5").Return(user, nil)
+	mockUserRepo.EXPECT().DeleteUserByID("emp5").Return(errors.New("delete error"))
+	if err := service.DeleteEmployeeByID("emp5"); err == nil || err.Error() != "delete error" {
+		t.Errorf("expected delete error, got %v", err)
 	}
 }
 

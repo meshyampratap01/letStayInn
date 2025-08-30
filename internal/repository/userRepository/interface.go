@@ -13,4 +13,5 @@ type UserRepository interface {
 	ToggleStaffAvailability(string) error
 	GetStaffAvailability(string) (bool, error)
 	UpdateUser(user *models.User) error
+	DeleteUserByID(userID string) error
 }
