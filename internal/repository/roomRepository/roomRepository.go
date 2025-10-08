@@ -21,6 +21,19 @@ func (r *GormRoomRepository) GetAllRooms() ([]models.Room, error) {
 	return rooms, err
 }
 
+func (r *GormRoomRepository) GetRoomByNumber(number int) (*models.Room, error) {
+    var room models.Room
+    err := r.db.Where("number = ?", number).First(&room).Error
+    if err != nil {
+        return nil, err
+    }
+    return &room, nil
+}
+
+func (r *GormRoomRepository) SaveRoom(room *models.Room) error {
+    return r.db.Save(room).Error
+}
+
 func (r *GormRoomRepository) SaveRooms(rooms []models.Room) error {
 	for _, room := range rooms {
 		if err := r.db.Save(&room).Error; err != nil {
@@ -35,7 +48,7 @@ func (r *GormRoomRepository) DeleteRoomByNumber(number int) error {
 	if err := r.db.Where("number = ?", number).First(&room).Error; err != nil {
 		return err
 	}
-	return r.db.Delete(&room).Error
+	return r.db.Unscoped().Delete(&room).Error
 }
 
 func (r *GormRoomRepository) GetAvailableRooms() ([]models.Room, error) {

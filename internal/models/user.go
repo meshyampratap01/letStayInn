@@ -67,5 +67,5 @@ type User struct {
 	// Relationships
 	Bookings        []Booking        `gorm:"foreignKey:UserID"`
 	Feedbacks       []Feedback       `gorm:"foreignKey:UserID"`
-	ServiceRequests []ServiceRequest `gorm:"foreignKey:UserID"`
+	ServiceRequests []ServiceRequest `gorm:"foreignKey:UserID;constraint:OnDelete:SET NULL;"`
 }

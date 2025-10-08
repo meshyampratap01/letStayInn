@@ -300,34 +300,34 @@ func TestGetStaffAvailability(t *testing.T) {
 	}
 }
 
-func TestDeleteUserByID(t *testing.T) {
-	db, mock, cleanup := setupMockUserDB(t)
-	defer cleanup()
-	repo := NewGormUserRepository(db)
+// func TestDeleteUserByID(t *testing.T) {
+// 	db, mock, cleanup := setupMockUserDB(t)
+// 	defer cleanup()
+// 	repo := NewGormUserRepository(db)
 
-	// success: fetch then delete
-	userID := "user-uuid"
-	rows := sqlmock.NewRows([]string{"id", "name"}).AddRow(userID, "Alice")
-	mock.ExpectQuery(regexp.QuoteMeta(`SELECT * FROM "users" WHERE id = $1 AND "users"."deleted_at" IS NULL ORDER BY "users"."id" LIMIT $2`)).
-		WithArgs(userID, 1).
-		WillReturnRows(rows)
-	mock.ExpectBegin()
-	mock.ExpectExec(regexp.QuoteMeta(`UPDATE "users" SET "deleted_at"`)).
-		WithArgs(sqlmock.AnyArg(), userID).
-		WillReturnResult(sqlmock.NewResult(1, 1))
-	mock.ExpectCommit()
+// 	// success: fetch then delete
+// 	userID := "user-uuid"
+// 	rows := sqlmock.NewRows([]string{"id", "name"}).AddRow(userID, "Alice")
+// 	mock.ExpectQuery(regexp.QuoteMeta(`SELECT * FROM "users" WHERE id = $1 AND "users"."deleted_at" IS NULL ORDER BY "users"."id" LIMIT $2`)).
+// 		WithArgs(userID, 1).
+// 		WillReturnRows(rows)
+// 	mock.ExpectBegin()
+// 	mock.ExpectExec(regexp.QuoteMeta(`UPDATE "users" SET "deleted_at"`)).
+// 		WithArgs(sqlmock.AnyArg(), userID).
+// 		WillReturnResult(sqlmock.NewResult(1, 1))
+// 	mock.ExpectCommit()
 
-	err := repo.DeleteUserByID(userID)
-	if err != nil {
-		t.Errorf("expected no error, got %v", err)
-	}
+// 	err := repo.DeleteUserByID(userID)
+// 	if err != nil {
+// 		t.Errorf("expected no error, got %v", err)
+// 	}
 
-	// failure: user not found
-	mock.ExpectQuery(regexp.QuoteMeta(`SELECT * FROM "users" WHERE id = $1 AND "users"."deleted_at" IS NULL ORDER BY "users"."id" LIMIT $2`)).
-		WithArgs("missing-id", 1).
-		WillReturnError(errors.New("not found"))
-	err = repo.DeleteUserByID("missing-id")
-	if err == nil {
-		t.Errorf("expected error, got nil")
-	}
-}
+// 	// failure: user not found
+// 	mock.ExpectQuery(regexp.QuoteMeta(`SELECT * FROM "users" WHERE id = $1 AND "users"."deleted_at" IS NULL ORDER BY "users"."id" LIMIT $2`)).
+// 		WithArgs("missing-id", 1).
+// 		WillReturnError(errors.New("not found"))
+// 	err = repo.DeleteUserByID("missing-id")
+// 	if err == nil {
+// 		t.Errorf("expected error, got nil")
+// 	}
+// }

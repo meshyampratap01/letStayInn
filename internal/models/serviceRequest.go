@@ -37,6 +37,6 @@ type ServiceRequest struct {
 
 	// Relationships
 	User    User    `gorm:"foreignKey:UserID"`
-	Booking Booking `gorm:"foreignKey:BookingID"`
-	Staff   User    `gorm:"foreignKey:AssignedTo"`
+	Booking Booking `gorm:"foreignKey:BookingID;constraint:OnDelete:SET NULL;"`
+	Staff   User    `gorm:"foreignKey:AssignedTo;constraint:OnDelete:SET NULL;"`
 }

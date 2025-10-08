@@ -85,6 +85,8 @@ func (u *UserHandler) SignupHTTPHandler(w http.ResponseWriter, r *http.Request) 
 
 // LoginHTTPHandler handles user login via HTTP (JSON)
 func (u *UserHandler) LoginHTTPHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods","GET, POST, PUT, DELETE")
 	var req LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		logger.Log.Error("Invalid login request body", zap.Error(err))

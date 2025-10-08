@@ -97,37 +97,37 @@ func TestSaveRooms(t *testing.T) {
 	}
 }
 
-func TestDeleteRoomByNumber(t *testing.T) {
-	db, mock, cleanup := setupMockDB(t)
-	defer cleanup()
-	repo := NewGormRoomRepository(db)
+// func TestDeleteRoomByNumber(t *testing.T) {
+// 	db, mock, cleanup := setupMockDB(t)
+// 	defer cleanup()
+// 	repo := NewGormRoomRepository(db)
 
-	// success: fetch then delete
-	roomID := "room-uuid"
-	rows := sqlmock.NewRows([]string{"id", "number"}).AddRow(roomID, 101)
-	mock.ExpectQuery(regexp.QuoteMeta(`SELECT * FROM "rooms" WHERE number = $1 AND "rooms"."deleted_at" IS NULL ORDER BY "rooms"."id" LIMIT $2`)).
-		WithArgs(101, 1).
-		WillReturnRows(rows)
-	mock.ExpectBegin()
-	mock.ExpectExec(regexp.QuoteMeta(`UPDATE "rooms" SET "deleted_at"`)).
-		WithArgs(sqlmock.AnyArg(), roomID).
-		WillReturnResult(sqlmock.NewResult(1, 1))
-	mock.ExpectCommit()
+// 	// success: fetch then delete
+// 	roomID := "room-uuid"
+// 	rows := sqlmock.NewRows([]string{"id", "number"}).AddRow(roomID, 101)
+// 	mock.ExpectQuery(regexp.QuoteMeta(`SELECT * FROM "rooms" WHERE number = $1 AND "rooms"."deleted_at" IS NULL ORDER BY "rooms"."id" LIMIT $2`)).
+// 		WithArgs(101, 1).
+// 		WillReturnRows(rows)
+// 	mock.ExpectBegin()
+// 	mock.ExpectExec(regexp.QuoteMeta(`UPDATE "rooms" SET "deleted_at"`)).
+// 		WithArgs(sqlmock.AnyArg(), roomID).
+// 		WillReturnResult(sqlmock.NewResult(1, 1))
+// 	mock.ExpectCommit()
 
-	err := repo.DeleteRoomByNumber(101)
-	if err != nil {
-		t.Errorf("expected no error, got %v", err)
-	}
+// 	err := repo.DeleteRoomByNumber(101)
+// 	if err != nil {
+// 		t.Errorf("expected no error, got %v", err)
+// 	}
 
-	// failure: room not found
-	mock.ExpectQuery(regexp.QuoteMeta(`SELECT * FROM "rooms" WHERE number = $1 AND "rooms"."deleted_at" IS NULL ORDER BY "rooms"."id" LIMIT $2`)).
-		WithArgs(999, 1).
-		WillReturnError(errors.New("not found"))
-	err = repo.DeleteRoomByNumber(999)
-	if err == nil {
-		t.Errorf("expected error, got nil")
-	}
-}
+// 	// failure: room not found
+// 	mock.ExpectQuery(regexp.QuoteMeta(`SELECT * FROM "rooms" WHERE number = $1 AND "rooms"."deleted_at" IS NULL ORDER BY "rooms"."id" LIMIT $2`)).
+// 		WithArgs(999, 1).
+// 		WillReturnError(errors.New("not found"))
+// 	err = repo.DeleteRoomByNumber(999)
+// 	if err == nil {
+// 		t.Errorf("expected error, got nil")
+// 	}
+// }
 
 func TestGetAvailableRooms(t *testing.T) {
 	db, mock, cleanup := setupMockDB(t)

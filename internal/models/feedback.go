@@ -19,6 +19,5 @@ type Feedback struct {
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
 
 	// Relationships
-	User    User    `gorm:"foreignKey:UserID"`
-	Booking Booking `gorm:"foreignKey:BookingID"`
+	User    User    `gorm:"foreignKey:UserID;constraint:OnDelete:SET NULL;"`
 }

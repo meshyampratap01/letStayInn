@@ -85,5 +85,5 @@ func (r *GormUserRepository) DeleteUserByID(userID string) error {
 	if err := r.db.Where("id = ?", userID).First(&user).Error; err != nil {
 		return err
 	}
-	return r.db.Delete(&user).Error
+	return r.db.Unscoped().Delete(&user).Error
 }

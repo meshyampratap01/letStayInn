@@ -147,6 +147,8 @@ func (h *BookingHandler) GetBookingsByRoleHTTP(w http.ResponseWriter, r *http.Re
 			ID:         b.ID,
 			RoomNumber: b.RoomNum,
 			Status:     b.Status,
+			FoodReq: 	b.FoodReq,
+			CleanReq: 	b.CleanReq,
 			CheckIn:    b.CheckIn.Format("2006-01-02"),
 			CheckOut:   b.CheckOut.Format("2006-01-02"),
 		})
@@ -155,9 +157,9 @@ func (h *BookingHandler) GetBookingsByRoleHTTP(w http.ResponseWriter, r *http.Re
 	json.NewEncoder(w).Encode(response.NewSuccessResponse(http.StatusOK, "Bookings fetched successfully", resp))
 }
 
-// DELETE /api/v1/bookings/{id}
+// DELETE /api/v1/bookings/{bookingId}
 func (h *BookingHandler) CancelBookingHTTP(w http.ResponseWriter, r *http.Request) {
-	bookingID := r.PathValue("id")
+	bookingID := r.PathValue("bookingId")
 	if bookingID == "" {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)

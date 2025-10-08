@@ -65,22 +65,8 @@ func (h *ManagerHandler) UpdateRoomHTTP(w http.ResponseWriter, r *http.Request) 
 		json.NewEncoder(w).Encode(resp)
 		return
 	}
+
 	roomNumStr := r.PathValue("roomNum")
-	var req struct {
-		Choice      int     `json:"choice"`
-		Type        string  `json:"type"`
-		Price       float64 `json:"price"`
-		IsAvailable bool    `json:"is_available"`
-		Description string  `json:"description"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		logger.Log.Error("Invalid request body for UpdateRoom", zap.Error(err))
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusBadRequest)
-		resp := response.NewErrorResponse(http.StatusBadRequest, "Invalid request body")
-		json.NewEncoder(w).Encode(resp)
-		return
-	}
 	number := 0
 	_, err := fmt.Sscanf(roomNumStr, "%d", &number)
 	if err != nil || number <= 0 {
@@ -91,7 +77,24 @@ func (h *ManagerHandler) UpdateRoomHTTP(w http.ResponseWriter, r *http.Request) 
 		json.NewEncoder(w).Encode(resp)
 		return
 	}
-	err = h.roomService.UpdateRoom(number, req.Choice, req.Type, req.Price, req.IsAvailable, req.Description)
+
+	var roomDetails struct {
+		Type        string  `json:"type"`
+		Price       float64 `json:"price"`
+		IsAvailable bool    `json:"is_available"`
+		Description string  `json:"description"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&roomDetails); err != nil {
+		logger.Log.Error("Invalid request body for UpdateRoom", zap.Error(err))
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		resp := response.NewErrorResponse(http.StatusBadRequest, "Invalid request body")
+		json.NewEncoder(w).Encode(resp)
+		return
+	}
+
+	err = h.roomService.UpdateRoom(number, roomDetails.Type, roomDetails.Price, roomDetails.IsAvailable, roomDetails.Description)
 	if err != nil {
 		logger.Log.Error("Failed to update room", zap.Error(err), zap.Int("roomId", number))
 		w.Header().Set("Content-Type", "application/json")
@@ -100,6 +103,7 @@ func (h *ManagerHandler) UpdateRoomHTTP(w http.ResponseWriter, r *http.Request) 
 		json.NewEncoder(w).Encode(resp)
 		return
 	}
+
 	logger.Log.Info("Room updated successfully", zap.Int("roomId", number))
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
@@ -362,14 +366,14 @@ func (h *ManagerHandler) ListAllBookingsHTTP(w http.ResponseWriter, r *http.Requ
 
 // GET /api/v1/service-requests
 func (h *ManagerHandler) ListUnassignedServiceRequestsHTTP(w http.ResponseWriter, r *http.Request) {
-	if err := RequireManager(r); err != nil {
-		logger.Log.Warn("Manager role required for ListUnassignedServiceRequests", zap.Error(err))
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusForbidden)
-		resp := response.NewErrorResponse(http.StatusForbidden, err.Error())
-		json.NewEncoder(w).Encode(resp)
-		return
-	}
+	// if err := RequireManager(r); err != nil {
+	// 	logger.Log.Warn("Manager role required for ListUnassignedServiceRequests", zap.Error(err))
+	// 	w.Header().Set("Content-Type", "application/json")
+	// 	w.WriteHeader(http.StatusForbidden)
+	// 	resp := response.NewErrorResponse(http.StatusForbidden, err.Error())
+	// 	json.NewEncoder(w).Encode(resp)
+	// 	return
+	// }
 	reqs, err := h.serviceRequestService.GetUnassignedServiceRequest()
 	if err != nil {
 		logger.Log.Error("Error fetching service requests", zap.Error(err))
@@ -383,6 +387,7 @@ func (h *ManagerHandler) ListUnassignedServiceRequestsHTTP(w http.ResponseWriter
 	for _, sr := range reqs {
 		dtos = append(dtos, dto.ServiceRequestDTO{
 			ID:         sr.ID,
+			UserID:     sr.UserID,
 			RoomNum:    sr.RoomNum,
 			Type:       string(sr.Type),
 			Details:    sr.Details,
@@ -536,22 +541,23 @@ func (h *ManagerHandler) CancelServiceRequestHTTP(w http.ResponseWriter, r *http
 
 // GET /api/v1/feedback?all=true
 func (h *ManagerHandler) ListAllFeedbackHTTP(w http.ResponseWriter, r *http.Request) {
-	if err := RequireManager(r); err != nil {
-		logger.Log.Warn("Manager role required for ListAllFeedback", zap.Error(err))
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusForbidden)
-		resp := response.NewErrorResponse(http.StatusForbidden, err.Error())
-		json.NewEncoder(w).Encode(resp)
-		return
-	}
-	all := r.URL.Query().Get("all")
+	// if err := RequireManager(r); err != nil {
+	// 	logger.Log.Warn("Manager role required for ListAllFeedback", zap.Error(err))
+	// 	w.Header().Set("Content-Type", "application/json")
+	// 	w.WriteHeader(http.StatusForbidden)
+	// 	resp := response.NewErrorResponse(http.StatusForbidden, err.Error())
+	// 	json.NewEncoder(w).Encode(resp)
+	// 	return
+	// }
+	// all := r.URL.Query().Get("all")
 	var feedbacks []models.Feedback
 	var err error
-	if all == "true" {
-		feedbacks, err = h.managerService.ViewAllFeedback()
-	} else {
-		feedbacks = []models.Feedback{} // or error
-	}
+	// if all == "true" {
+	// 	feedbacks, err = h.managerService.ViewAllFeedback()
+	// } else {
+	// 	feedbacks = []models.Feedback{} // or error
+	// }
+	feedbacks, err = h.managerService.ViewAllFeedback()
 	if err != nil {
 		logger.Log.Error("Error fetching feedback", zap.Error(err))
 		w.Header().Set("Content-Type", "application/json")

@@ -6,14 +6,13 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/meshyampratap01/letStayInn/internal/validators"
-
 	contextkeys "github.com/meshyampratap01/letStayInn/internal/contextKeys"
 	"github.com/meshyampratap01/letStayInn/internal/models"
 	"github.com/meshyampratap01/letStayInn/internal/repository/bookingRepository"
 	"github.com/meshyampratap01/letStayInn/internal/repository/roomRepository"
 	"github.com/meshyampratap01/letStayInn/internal/repository/userRepository"
 	"github.com/meshyampratap01/letStayInn/internal/utils"
+	"github.com/meshyampratap01/letStayInn/internal/validators"
 )
 
 type BookingService struct {
@@ -72,7 +71,7 @@ func (s *BookingService) BookRoom(ctx context.Context, roomNum int, checkInStr, 
 	}
 
 	layout := "02-01-2006"
-	checkInTime, _ := time.Parse(layout, validCheckIn)
+	checkInTime, _ := time.Parse(layout, checkInStr)
 	checkOutTime, _ := time.Parse(layout, checkOutStr)
 	newBooking := models.Booking{
 		ID:       utils.NewUUID(),

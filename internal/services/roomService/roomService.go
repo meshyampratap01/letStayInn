@@ -86,55 +86,35 @@ func (r *RoomService) AddRoom(number int, roomType string, price float64, isAvai
 	return r.roomRepo.AddRoom(newRoom)
 }
 
-func (r *RoomService) UpdateRoom(number int, choice int, roomType string, price float64, isAvailable bool, description string) error {
-	if choice < 1 || choice > 4 {
-		return fmt.Errorf("%w: %d (must be between 1 and 4)", ErrInvalidChoice, choice)
-	}
+func (r *RoomService) UpdateRoom(number int, roomType string, price float64, isAvailable bool, description string) error {
+    if roomType == "" {
+        return fmt.Errorf("%w: room type cannot be empty", ErrInvalidInput)
+    }
+    if price <= 0 {
+        return fmt.Errorf("%w: price %.2f must be greater than 0", ErrInvalidInput, price)
+    }
+    if len(description) < 5 {
+        return fmt.Errorf("%w: description must be at least 5 characters long", ErrInvalidInput)
+    }
 
-	rooms, err := r.roomRepo.GetAllRooms()
-	if err != nil {
-		return fmt.Errorf("%w: %v", ErrPersistenceFailed, err)
-	}
+    room, err := r.roomRepo.GetRoomByNumber(number)
+    if err != nil {
+        return fmt.Errorf("%w: %v", ErrPersistenceFailed, err)
+    }
+    if room == nil {
+        return fmt.Errorf("%w: room number %d", ErrRoomNotFound, number)
+    }
 
-	updated := false
-	for i, room := range rooms {
-		if room.Number == number {
-			switch choice {
-			case 1: 
-				if roomType == "" {
-					return fmt.Errorf("%w: room type cannot be empty", ErrInvalidInput)
-				}
-				rooms[i].Type = models.RoomType(roomType)
+    room.Type = models.RoomType(roomType)
+    room.Price = price
+    room.IsAvailable = isAvailable
+    room.Description = description
 
-			case 2:
-				if price <= 0 {
-					return fmt.Errorf("%w: price %.2f must be greater than 0", ErrInvalidInput, price)
-				}
-				rooms[i].Price = price
+    if err := r.roomRepo.SaveRoom(room); err != nil {
+        return fmt.Errorf("%w: %v", ErrPersistenceFailed, err)
+    }
 
-			case 3: 
-				rooms[i].IsAvailable = isAvailable
-
-			case 4: 
-				if len(description) < 5 {
-					return fmt.Errorf("%w: description must be at least 5 characters long", ErrInvalidInput)
-				}
-				rooms[i].Description = description
-			}
-			updated = true
-			break
-		}
-	}
-
-	if !updated {
-		return fmt.Errorf("%w: room number %d", ErrRoomNotFound, number)
-	}
-
-	if err := r.roomRepo.SaveRooms(rooms); err != nil {
-		return fmt.Errorf("%w: %v", ErrPersistenceFailed, err)
-	}
-
-	return nil
+    return nil
 }
 
 func (r *RoomService) DeleteRoom(number int) error {
