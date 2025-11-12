@@ -80,3 +80,59 @@ func (fh *FeedbackHandler) SubmitFeedbackHTTP(w http.ResponseWriter, r *http.Req
 	resp := response.NewSuccessResponse(http.StatusCreated, "Feedback submitted", nil)
 	json.NewEncoder(w).Encode(resp)
 }
+
+func (fh *FeedbackHandler) DeleteFeedbackHTTP(w http.ResponseWriter, r *http.Request) {
+	roleVal := r.Context().Value(contextkeys.UserRoleKey)
+	role, ok := roleVal.(string)
+	if !ok {
+		logger.Log.Error("Unauthorized: invalid user ID in context", zap.Any("context", r.Context()))
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		resp := response.NewErrorResponse(http.StatusUnauthorized, "Unauthorized: invalid user ID in context")
+		json.NewEncoder(w).Encode(resp)
+		return
+	}
+	if role != "Manager" {
+		logger.Log.Warn("Forbidden: manager access required", zap.String("role", role))
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusForbidden)
+		resp := response.NewErrorResponse(http.StatusForbidden, "Forbidden: guest access required")
+		json.NewEncoder(w).Encode(resp)
+		return
+	}
+	userIDVal := r.Context().Value(contextkeys.UserIDKey)
+	userID, ok := userIDVal.(string)
+	if !ok {
+		logger.Log.Error("Unauthorized: invalid user ID in context", zap.Any("context", r.Context()))
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		resp := response.NewErrorResponse(http.StatusUnauthorized, "Unauthorized: invalid user ID in context")
+		json.NewEncoder(w).Encode(resp)
+		return
+	}
+	var req struct {
+		FeedbackID string `json:"feedback_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		logger.Log.Error("Invalid request body for feedback submission", zap.Error(err))
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		resp := response.NewErrorResponse(http.StatusBadRequest, "Invalid request body")
+		json.NewEncoder(w).Encode(resp)
+		return
+	}
+	err := fh.feedbackService.DeleteFeedback(req.FeedbackID)
+	if err != nil {
+		logger.Log.Error("Failed to delete feedback", zap.Error(err), zap.String("userID", userID))
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		resp := response.NewErrorResponse(http.StatusInternalServerError, err.Error())
+		json.NewEncoder(w).Encode(resp)
+		return
+	}
+	logger.Log.Info("Feedback Deleted", zap.String("userID", userID))
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	resp := response.NewSuccessResponse(http.StatusCreated, "Feedback Deleted successfully", nil)
+	json.NewEncoder(w).Encode(resp)
+}

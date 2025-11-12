@@ -11,6 +11,5 @@ type IManagerService interface {
 	DeleteEmployeeByID(id string) error
 	GetAvailableStaffByTaskType(string) ([]models.User, error)
 	AssignServiceRequest(reqID string, empID string) error
-	GetHotelReport() (*models.HotelReport, error)
 	ViewAllFeedback() ([]models.Feedback, error)
 }

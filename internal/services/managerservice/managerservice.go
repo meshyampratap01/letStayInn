@@ -95,7 +95,7 @@ func (ms *ManagerService) DeleteEmployeeByID(id string) error {
 	if user.Role != models.RoleKitchenStaff && user.Role != models.RoleCleaningStaff {
 		return errors.New("user with this id is not an employee")
 	}
-	return ms.userRepo.DeleteUserByID(id)
+	return ms.userRepo.DeleteUserByID(id) 
 }
 
 func (ms *ManagerService) GetAvailableStaffByTaskType(taskType string) ([]models.User, error) {
@@ -143,55 +143,6 @@ func (s *ManagerService) AssignServiceRequest(reqID string, empID string) error 
 	}
 
 	return s.serviceRequestRepo.UpdateServiceRequest(req)
-}
-
-func (s *ManagerService) GetHotelReport() (*models.HotelReport, error) {
-	rooms, err := s.roomRepo.GetAllRooms()
-	if err != nil {
-		return nil, fmt.Errorf("error fetching rooms: %v", err)
-	}
-
-	availableRooms, err := s.roomRepo.GetAvailableRooms()
-	if err != nil {
-		return nil, fmt.Errorf("error fetching available rooms: %v", err)
-	}
-
-	employees, err := s.GetAllEmployees()
-	if err != nil {
-		return nil, fmt.Errorf("error fetching employees: %v", err)
-	}
-
-	bookings, err := s.bookingRepo.GetAllBookings()
-	if err != nil {
-		return nil, fmt.Errorf("error fetching bookings: %v", err)
-	}
-
-	serviceRequests, err := s.serviceRequestRepo.LoadServiceRequests()
-	if err != nil {
-		return nil, fmt.Errorf("error fetching service requests: %v", err)
-	}
-
-	unassignedRequests := 0
-	for _, req := range serviceRequests {
-		if !req.IsAssigned {
-			unassignedRequests++
-		}
-	}
-
-	requestStatusSummary := make(map[models.ServiceStatus]int)
-	for _, req := range serviceRequests {
-		requestStatusSummary[req.Status]++
-	}
-
-	report := &models.HotelReport{
-		TotalRooms:            len(rooms),
-		AvailableRooms:        len(availableRooms),
-		TotalStaff:            len(employees),
-		TotalBookings:         len(bookings),
-		UnassignedRequests:    unassignedRequests,
-		ServiceRequestSummary: requestStatusSummary,
-	}
-	return report, nil
 }
 
 func (ms *ManagerService) ViewAllFeedback() ([]models.Feedback, error) {

@@ -62,7 +62,11 @@ func (s *UserService) UpdateUser(user *models.User) error {
 
 func (s *UserService) GetUserByEmail(email string) (*models.User, error) {
 	email = strings.TrimSpace(email)
-	return s.userRepo.GetUserByEmail(email)
+	user,err:= s.userRepo.GetUserByEmail(email)
+	if err!=nil{
+		return nil, fmt.Errorf("Record not found.")
+	}
+	return user,nil
 }
 
 func (s *UserService) Login(email, password string) (*models.User, error) {
@@ -75,7 +79,7 @@ func (s *UserService) Login(email, password string) (*models.User, error) {
 	}
 
 	if !auth.CheckPassword(user.Password, password) {
-		return nil, fmt.Errorf("invalid credentials")
+		return nil, fmt.Errorf("Invalid Credentials")
 	}
 
 	return user, nil

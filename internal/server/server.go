@@ -24,6 +24,7 @@ func withCorsHeader(h http.HandlerFunc) http.HandlerFunc {
 
 func registerUserRoutes(mux *http.ServeMux, prefix string, h *container.AppHandlers) {
 	mux.HandleFunc("POST "+prefix+"signup", withCorsHeader(h.UserHandler.SignupHTTPHandler))
+	mux.HandleFunc("OPTIONS "+prefix+"signup", withCorsHeader(h.UserHandler.SignupHTTPHandler))
 	mux.HandleFunc("OPTIONS "+prefix+"login", withCorsHeader(h.UserHandler.LoginHTTPHandler))
 	mux.HandleFunc("POST "+prefix+"login", withCorsHeader(h.UserHandler.LoginHTTPHandler))
 }
@@ -48,6 +49,7 @@ func registerBookingRoutes(mux *http.ServeMux, prefix string, h *container.AppHa
 func registerFeedbackRoutes(mux *http.ServeMux, prefix string, h *container.AppHandlers) {
 	mux.HandleFunc("POST "+prefix+"feedbacks", withAuth(h.FeedbackHandler.SubmitFeedbackHTTP))
 	mux.HandleFunc("GET "+prefix+"feedbacks", withCorsHeader(withAuth(h.ManagerHandler.ListAllFeedbackHTTP))) 
+	mux.HandleFunc("DELETE "+prefix+"feedbacks", withCorsHeader(withAuth(h.FeedbackHandler.DeleteFeedbackHTTP))) 
 	mux.HandleFunc("OPTIONS "+prefix+"feedbacks", withCorsHeader(withAuth(h.ManagerHandler.ListAllFeedbackHTTP))) 
 }
 
@@ -59,9 +61,12 @@ func registerEmployeeRoutes(mux *http.ServeMux, prefix string, h *container.AppH
 	mux.HandleFunc("OPTIONS "+prefix+"employees/{employeeId}", withCorsHeader(withAuth(h.ManagerHandler.DeleteEmployeeHTTP)))
 	mux.HandleFunc("PUT "+prefix+"employees/{employeeEmail}/availability", withCorsHeader(withAuth(h.ManagerHandler.UpdateEmployeeAvailabilityHTTP)))
 	mux.HandleFunc("OPTIONS "+prefix+"employees/{employeeEmail}/availability", withCorsHeader(withAuth(h.ManagerHandler.UpdateEmployeeAvailabilityHTTP)))
-	mux.HandleFunc("GET "+prefix+"employee/service-requests", withAuth(h.EmployeeHandler.ViewAssignedServiceRequestsHTTP))
-	mux.HandleFunc("PUT "+prefix+"employee/service-requests/{serviceRequestId}/status", withAuth(h.EmployeeHandler.UpdateServiceRequestStatusHTTP))
-	mux.HandleFunc("PUT "+prefix+"employee/availability", withAuth(h.EmployeeHandler.ToggleAvailabilityHTTP))
+	mux.HandleFunc("GET "+prefix+"employee/service-requests", withCorsHeader(withAuth(h.EmployeeHandler.ViewAssignedServiceRequestsHTTP)))
+	mux.HandleFunc("OPTIONS "+prefix+"employee/service-requests", withCorsHeader(withAuth(h.EmployeeHandler.ViewAssignedServiceRequestsHTTP)))
+	mux.HandleFunc("PUT "+prefix+"employee/service-requests/{serviceRequestId}/status", withCorsHeader(withAuth(h.EmployeeHandler.UpdateServiceRequestStatusHTTP)))
+	mux.HandleFunc("OPTIONS "+prefix+"employee/service-requests/{serviceRequestId}/status", withCorsHeader(withAuth(h.EmployeeHandler.UpdateServiceRequestStatusHTTP)))
+	mux.HandleFunc("PUT "+prefix+"employee/availability", withCorsHeader(withAuth(h.EmployeeHandler.ToggleAvailabilityHTTP)))
+	mux.HandleFunc("OPTIONS "+prefix+"employee/availability", withCorsHeader(withAuth(h.EmployeeHandler.ToggleAvailabilityHTTP)))
 }
 
 func registerServiceRequestRoutes(mux *http.ServeMux, prefix string, h *container.AppHandlers) {

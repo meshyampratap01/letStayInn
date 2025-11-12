@@ -585,31 +585,6 @@ func (h *ManagerHandler) ListAllFeedbackHTTP(w http.ResponseWriter, r *http.Requ
 	json.NewEncoder(w).Encode(resp)
 }
 
-// GET /api/v1/report
-func (h *ManagerHandler) GenerateReportHTTP(w http.ResponseWriter, r *http.Request) {
-	if err := RequireManager(r); err != nil {
-		logger.Log.Warn("Manager role required for GenerateReport", zap.Error(err))
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusForbidden)
-		resp := response.NewErrorResponse(http.StatusForbidden, err.Error())
-		json.NewEncoder(w).Encode(resp)
-		return
-	}
-	report, err := h.managerService.GetHotelReport()
-	if err != nil {
-		logger.Log.Error("Error generating report", zap.Error(err))
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusInternalServerError)
-		resp := response.NewErrorResponse(http.StatusInternalServerError, err.Error())
-		json.NewEncoder(w).Encode(resp)
-		return
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	resp := response.NewSuccessResponse(http.StatusOK, "Report generated successfully", report)
-	json.NewEncoder(w).Encode(resp)
-}
-
 // POST /api/v1/rooms (manager only)
 func (h *ManagerHandler) AddRoomHTTP(w http.ResponseWriter, r *http.Request) {
 	if err := RequireManager(r); err != nil {

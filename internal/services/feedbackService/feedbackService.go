@@ -79,3 +79,12 @@ func (s *FeedbackService) SubmitFeedback(ctx context.Context, message string, ra
 
 	return nil
 }
+
+
+func (fs *FeedbackService) DeleteFeedback(feedbackID string) error{
+	err:= fs.feedbackRepo.DeleteFeedback(feedbackID)
+	if err!=nil{
+		return fmt.Errorf("failed to delete the feedback")
+	}
+	return nil
+}

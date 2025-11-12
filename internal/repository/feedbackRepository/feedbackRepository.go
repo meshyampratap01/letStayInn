@@ -22,3 +22,9 @@ func (r *GormFeedbackRepository) GetAllFeedback() ([]models.Feedback, error) {
 	err := r.db.Find(&feedbacks).Error
 	return feedbacks, err
 }
+
+
+func (r *GormFeedbackRepository) DeleteFeedback(feedbackID string) error {
+    err := r.db.Delete(&models.Feedback{}, "id = ?", feedbackID).Error
+    return err
+}

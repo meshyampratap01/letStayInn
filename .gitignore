@@ -5,6 +5,7 @@
 *.so
 *.dylib
 *.test
+*.txt
 
 *.linux-amd64.tar.gz
 
