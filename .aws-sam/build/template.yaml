@@ -1,0 +1,611 @@
+Transform: AWS::Serverless-2016-10-31
+Globals:
+  Function:
+    Architectures:
+    - arm64
+    Timeout: 200
+    Handler: main.go
+    Runtime: provided.al2023
+Resources:
+  Api:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: v1
+      Cors:
+        AllowMethods: '''GET,POST,PUT,DELETE,OPTIONS,PATCH'''
+        AllowHeaders: '''Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'''
+        AllowOrigin: '''*'''
+  Login:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: go1.x
+      SamResourceId: Login
+    Properties:
+      CodeUri: Login
+      Events:
+        ApiEvents:
+          Type: Api
+          Properties:
+            Method: post
+            Path: /auth/login
+            RestApiId:
+              Ref: Api
+      Policies:
+      - DynamoDBCrudPolicy:
+          TableName: letstayinn
+      - Statement:
+        - Effect: Allow
+          Action:
+          - dynamodb:PartiQLSelect
+          - dynamodb:PartiQLInsert
+          - dynamodb:PartiQLUpdate
+          - dynamodb:PartiQLDelete
+          Resource:
+            Fn::Sub: arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/letstayinn
+  Signup:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: go1.x
+      SamResourceId: Signup
+    Properties:
+      CodeUri: Signup
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Method: post
+            Path: /auth/signup
+            RestApiId:
+              Ref: Api
+      Policies:
+      - DynamoDBCrudPolicy:
+          TableName: letstayinn
+      - Statement:
+        - Effect: Allow
+          Action:
+          - dynamodb:PartiQLSelect
+          - dynamodb:PartiQLInsert
+          - dynamodb:PartiQLUpdate
+          - dynamodb:PartiQLDelete
+          Resource:
+            Fn::Sub: arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/letstayinn
+  GetRoms:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: go1.x
+      SamResourceId: GetRoms
+    Properties:
+      CodeUri: GetRoms
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Method: get
+            Path: /rooms
+            RestApiId:
+              Ref: Api
+      Policies:
+      - DynamoDBCrudPolicy:
+          TableName: letstayinn
+      - Statement:
+        - Effect: Allow
+          Action:
+          - dynamodb:PartiQLSelect
+          - dynamodb:PartiQLInsert
+          - dynamodb:PartiQLUpdate
+          - dynamodb:PartiQLDelete
+          Resource:
+            Fn::Sub: arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/letstayinn
+  AddRoom:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: go1.x
+      SamResourceId: AddRoom
+    Properties:
+      CodeUri: AddRoom
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Method: post
+            Path: /rooms
+            RestApiId:
+              Ref: Api
+      Policies:
+      - DynamoDBCrudPolicy:
+          TableName: letstayinn
+      - Statement:
+        - Effect: Allow
+          Action:
+          - dynamodb:PartiQLSelect
+          - dynamodb:PartiQLInsert
+          - dynamodb:PartiQLUpdate
+          - dynamodb:PartiQLDelete
+          Resource:
+            Fn::Sub: arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/letstayinn
+  UpdateRoom:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: go1.x
+      SamResourceId: UpdateRoom
+    Properties:
+      CodeUri: UpdateRoom
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Method: put
+            Path: /rooms/{roomNum}
+            RestApiId:
+              Ref: Api
+      Policies:
+      - DynamoDBCrudPolicy:
+          TableName: letstayinn
+      - Statement:
+        - Effect: Allow
+          Action:
+          - dynamodb:PartiQLSelect
+          - dynamodb:PartiQLInsert
+          - dynamodb:PartiQLUpdate
+          - dynamodb:PartiQLDelete
+          Resource:
+            Fn::Sub: arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/letstayinn
+  DeleteRoom:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: go1.x
+      SamResourceId: DeleteRoom
+    Properties:
+      CodeUri: DeleteRoom
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Method: delete
+            Path: /rooms/{roomNum}
+            RestApiId:
+              Ref: Api
+      Policies:
+      - DynamoDBCrudPolicy:
+          TableName: letstayinn
+      - Statement:
+        - Effect: Allow
+          Action:
+          - dynamodb:PartiQLSelect
+          - dynamodb:PartiQLInsert
+          - dynamodb:PartiQLUpdate
+          - dynamodb:PartiQLDelete
+          Resource:
+            Fn::Sub: arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/letstayinn
+  GetBookings:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: go1.x
+      SamResourceId: GetBookings
+    Properties:
+      CodeUri: GetBookings
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Method: get
+            Path: /bookings
+            RestApiId:
+              Ref: Api
+      Policies:
+      - DynamoDBCrudPolicy:
+          TableName: letstayinn
+      - Statement:
+        - Effect: Allow
+          Action:
+          - dynamodb:PartiQLSelect
+          - dynamodb:PartiQLInsert
+          - dynamodb:PartiQLUpdate
+          - dynamodb:PartiQLDelete
+          Resource:
+            Fn::Sub: arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/letstayinn
+  BookRoom:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: go1.x
+      SamResourceId: BookRoom
+    Properties:
+      CodeUri: BookRoom
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Method: post
+            Path: /bookings
+            RestApiId:
+              Ref: Api
+      Policies:
+      - DynamoDBCrudPolicy:
+          TableName: letstayinn
+      - Statement:
+        - Effect: Allow
+          Action:
+          - dynamodb:PartiQLSelect
+          - dynamodb:PartiQLInsert
+          - dynamodb:PartiQLUpdate
+          - dynamodb:PartiQLDelete
+          Resource:
+            Fn::Sub: arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/letstayinn
+  CancelBooking:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: go1.x
+      SamResourceId: CancelBooking
+    Properties:
+      CodeUri: CancelBooking
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Method: delete
+            Path: /bookings/{bookingId}
+            RestApiId:
+              Ref: Api
+      Policies:
+      - DynamoDBCrudPolicy:
+          TableName: letstayinn
+      - Statement:
+        - Effect: Allow
+          Action:
+          - dynamodb:PartiQLSelect
+          - dynamodb:PartiQLInsert
+          - dynamodb:PartiQLUpdate
+          - dynamodb:PartiQLDelete
+          Resource:
+            Fn::Sub: arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/letstayinn
+  GetFeedbacks:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: go1.x
+      SamResourceId: GetFeedbacks
+    Properties:
+      CodeUri: GetFeedbacks
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Method: get
+            Path: /feedbacks
+            RestApiId:
+              Ref: Api
+      Policies:
+      - DynamoDBCrudPolicy:
+          TableName: letstayinn
+      - Statement:
+        - Effect: Allow
+          Action:
+          - dynamodb:PartiQLSelect
+          - dynamodb:PartiQLInsert
+          - dynamodb:PartiQLUpdate
+          - dynamodb:PartiQLDelete
+          Resource:
+            Fn::Sub: arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/letstayinn
+  GiveFeedback:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: go1.x
+      SamResourceId: GiveFeedback
+    Properties:
+      CodeUri: GiveFeedback
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Method: post
+            Path: /feedbacks
+            RestApiId:
+              Ref: Api
+      Policies:
+      - DynamoDBCrudPolicy:
+          TableName: letstayinn
+      - Statement:
+        - Effect: Allow
+          Action:
+          - dynamodb:PartiQLSelect
+          - dynamodb:PartiQLInsert
+          - dynamodb:PartiQLUpdate
+          - dynamodb:PartiQLDelete
+          Resource:
+            Fn::Sub: arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/letstayinn
+  DeleteFeedback:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: go1.x
+      SamResourceId: DeleteFeedback
+    Properties:
+      CodeUri: DeleteFeedback
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Method: delete
+            Path: /feedbacks
+            RestApiId:
+              Ref: Api
+      Policies:
+      - DynamoDBCrudPolicy:
+          TableName: letstayinn
+      - Statement:
+        - Effect: Allow
+          Action:
+          - dynamodb:PartiQLSelect
+          - dynamodb:PartiQLInsert
+          - dynamodb:PartiQLUpdate
+          - dynamodb:PartiQLDelete
+          Resource:
+            Fn::Sub: arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/letstayinn
+  CreateEmployee:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: go1.x
+      SamResourceId: CreateEmployee
+    Properties:
+      CodeUri: CreateEmployee
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Method: post
+            Path: /employees
+            RestApiId:
+              Ref: Api
+      Policies:
+      - DynamoDBCrudPolicy:
+          TableName: letstayinn
+      - Statement:
+        - Effect: Allow
+          Action:
+          - dynamodb:PartiQLSelect
+          - dynamodb:PartiQLInsert
+          - dynamodb:PartiQLUpdate
+          - dynamodb:PartiQLDelete
+          Resource:
+            Fn::Sub: arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/letstayinn
+  GetEmployees:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: go1.x
+      SamResourceId: GetEmployees
+    Properties:
+      CodeUri: GetEmployees
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Method: get
+            Path: /employees
+            RestApiId:
+              Ref: Api
+      Policies:
+      - DynamoDBCrudPolicy:
+          TableName: letstayinn
+      - Statement:
+        - Effect: Allow
+          Action:
+          - dynamodb:PartiQLSelect
+          - dynamodb:PartiQLInsert
+          - dynamodb:PartiQLUpdate
+          - dynamodb:PartiQLDelete
+          Resource:
+            Fn::Sub: arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/letstayinn
+  DeleteEmployee:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: go1.x
+      SamResourceId: DeleteEmployee
+    Properties:
+      CodeUri: DeleteEmployee
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Method: delete
+            Path: /employees/{employeeId}
+            RestApiId:
+              Ref: Api
+      Policies:
+      - DynamoDBCrudPolicy:
+          TableName: letstayinn
+      - Statement:
+        - Effect: Allow
+          Action:
+          - dynamodb:PartiQLSelect
+          - dynamodb:PartiQLInsert
+          - dynamodb:PartiQLUpdate
+          - dynamodb:PartiQLDelete
+          Resource:
+            Fn::Sub: arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/letstayinn
+  UpdateEmployee:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: go1.x
+      SamResourceId: UpdateEmployee
+    Properties:
+      CodeUri: UpdateEmployee
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Method: put
+            Path: /employees/availability/{employeeEmail}
+            RestApiId:
+              Ref: Api
+      Policies:
+      - DynamoDBCrudPolicy:
+          TableName: letstayinn
+      - Statement:
+        - Effect: Allow
+          Action:
+          - dynamodb:PartiQLSelect
+          - dynamodb:PartiQLInsert
+          - dynamodb:PartiQLUpdate
+          - dynamodb:PartiQLDelete
+          Resource:
+            Fn::Sub: arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/letstayinn
+  SubmitServiceRequest:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: go1.x
+      SamResourceId: SubmitServiceRequest
+    Properties:
+      CodeUri: SubmitServiceRequest
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Method: post
+            Path: /service-requests
+            RestApiId:
+              Ref: Api
+      Policies:
+      - DynamoDBCrudPolicy:
+          TableName: letstayinn
+      - Statement:
+        - Effect: Allow
+          Action:
+          - dynamodb:PartiQLSelect
+          - dynamodb:PartiQLInsert
+          - dynamodb:PartiQLUpdate
+          - dynamodb:PartiQLDelete
+          Resource:
+            Fn::Sub: arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/letstayinn
+  UpdateServiceRequest:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: go1.x
+      SamResourceId: UpdateServiceRequest
+    Properties:
+      CodeUri: UpdateServiceRequest
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Method: put
+            Path: /employee/service-requests/{serviceRequestId}/status
+            RestApiId:
+              Ref: Api
+      Policies:
+      - DynamoDBCrudPolicy:
+          TableName: letstayinn
+      - Statement:
+        - Effect: Allow
+          Action:
+          - dynamodb:PartiQLSelect
+          - dynamodb:PartiQLInsert
+          - dynamodb:PartiQLUpdate
+          - dynamodb:PartiQLDelete
+          Resource:
+            Fn::Sub: arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/letstayinn
+  AssignServiceRequest:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: go1.x
+      SamResourceId: AssignServiceRequest
+    Properties:
+      CodeUri: AssignServiceRequest
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Method: post
+            Path: /service-requests/{requestId}/assign
+            RestApiId:
+              Ref: Api
+      Policies:
+      - DynamoDBCrudPolicy:
+          TableName: letstayinn
+      - Statement:
+        - Effect: Allow
+          Action:
+          - dynamodb:PartiQLSelect
+          - dynamodb:PartiQLInsert
+          - dynamodb:PartiQLUpdate
+          - dynamodb:PartiQLDelete
+          Resource:
+            Fn::Sub: arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/letstayinn
+  ListServiceRequest:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: go1.x
+      SamResourceId: ListServiceRequest
+    Properties:
+      CodeUri: ListServiceRequest
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Method: get
+            Path: /service-requests
+            RestApiId:
+              Ref: Api
+      Policies:
+      - DynamoDBCrudPolicy:
+          TableName: letstayinn
+      - Statement:
+        - Effect: Allow
+          Action:
+          - dynamodb:PartiQLSelect
+          - dynamodb:PartiQLInsert
+          - dynamodb:PartiQLUpdate
+          - dynamodb:PartiQLDelete
+          Resource:
+            Fn::Sub: arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/letstayinn
+  ViewAssignedServiceRequest:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: go1.x
+      SamResourceId: ViewAssignedServiceRequest
+    Properties:
+      CodeUri: ViewAssignedServiceRequest
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Method: get
+            Path: /employee/service-requests
+            RestApiId:
+              Ref: Api
+      Policies:
+      - DynamoDBCrudPolicy:
+          TableName: letstayinn
+      - Statement:
+        - Effect: Allow
+          Action:
+          - dynamodb:PartiQLSelect
+          - dynamodb:PartiQLInsert
+          - dynamodb:PartiQLUpdate
+          - dynamodb:PartiQLDelete
+          Resource:
+            Fn::Sub: arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/letstayinn
+  GetProfile:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: go1.x
+      SamResourceId: GetProfile
+    Properties:
+      CodeUri: GetProfile
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Method: get
+            Path: /profile
+            RestApiId:
+              Ref: Api
+      Policies:
+      - DynamoDBCrudPolicy:
+          TableName: letstayinn
+      - Statement:
+        - Effect: Allow
+          Action:
+          - dynamodb:PartiQLSelect
+          - dynamodb:PartiQLInsert
+          - dynamodb:PartiQLUpdate
+          - dynamodb:PartiQLDelete
+          Resource:
+            Fn::Sub: arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/letstayinn

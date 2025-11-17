@@ -1,0 +1,128 @@
+package managerservice
+
+import (
+	"errors"
+	"fmt"
+
+	"github.com/meshyampratap01/letStayInn/internal/models"
+	"github.com/meshyampratap01/letStayInn/internal/repository/bookingRepository"
+	"github.com/meshyampratap01/letStayInn/internal/repository/feedbackRepository"
+	"github.com/meshyampratap01/letStayInn/internal/repository/roomRepository"
+	"github.com/meshyampratap01/letStayInn/internal/repository/serviceRequestRepository"
+	"github.com/meshyampratap01/letStayInn/internal/repository/userRepository"
+)
+
+type ManagerService struct {
+	userRepo           userRepository.UserRepository
+	serviceRequestRepo serviceRequestRepository.ServiceRequestRepository
+	roomRepo           roomRepository.IRoomRepository
+	bookingRepo        bookingRepository.BookingRepository
+	feedbackRepo       feedbackRepository.FeedbackRepository
+}
+
+func NewManagerService(userRepo userRepository.UserRepository, serviceRequestRepo serviceRequestRepository.ServiceRequestRepository, roomRepo roomRepository.IRoomRepository, bookingRepo bookingRepository.BookingRepository, feedbackRepo feedbackRepository.FeedbackRepository) IManagerService {
+	return &ManagerService{
+		userRepo:           userRepo,
+		serviceRequestRepo: serviceRequestRepo,
+		roomRepo:           roomRepo,
+		bookingRepo:        bookingRepo,
+		feedbackRepo:       feedbackRepo,
+	}
+}
+
+func (ms *ManagerService) UpdateEmployeeAvailability(email string, available bool) error {
+	user, err := ms.userRepo.GetUserByEmail(email)
+	if err != nil {
+		return fmt.Errorf("employee with email %s not found", email)
+	}
+
+	user.Available = available
+	return ms.userRepo.UpdateUser(user)
+}
+
+func (ms *ManagerService) GetAllEmployees() ([]models.User, error) {
+	users, err := ms.userRepo.GetAllUsers()
+	if err != nil {
+		return nil, err
+	}
+
+	var employees []models.User
+	for _, user := range users {
+		if user.Role == models.RoleKitchenStaff || user.Role == models.RoleCleaningStaff {
+			employees = append(employees, user)
+		}
+	}
+	return employees, nil
+}
+
+func (ms *ManagerService) GetTotalEmployees() (int, error) {
+	users, err := ms.userRepo.GetAllUsers()
+	if err != nil {
+		return 0, err
+	}
+
+	count := 0
+	for _, u := range users {
+		if u.Role == models.RoleCleaningStaff || u.Role == models.RoleKitchenStaff {
+			count++
+		}
+	}
+	return count, nil
+}
+
+func (ms *ManagerService) DeleteEmployeeByID(id string) error {
+	user, err := ms.userRepo.GetUserByID(id)
+	if err != nil {
+		return errors.New("employee not found")
+	}
+	if user.Role != models.RoleKitchenStaff && user.Role != models.RoleCleaningStaff {
+		return errors.New("user with this id is not an employee")
+	}
+	return ms.userRepo.DeleteUserByID(id)
+}
+
+func (ms *ManagerService) GetAvailableStaffByTaskType(taskType string) ([]models.User, error) {
+	var role models.Role
+	switch taskType {
+	case string(models.ServiceTypeCleaning):
+		role = models.RoleCleaningStaff
+	case string(models.ServiceTypeFood):
+		role = models.RoleKitchenStaff
+	default:
+		return nil, errors.New("invalid task type")
+	}
+
+	allUsers, err := ms.userRepo.GetAllUsers()
+	if err != nil {
+		return nil, err
+	}
+
+	var availableStaff []models.User
+	for _, user := range allUsers {
+		if user.Role == role && user.Available {
+			availableStaff = append(availableStaff, user)
+		}
+	}
+
+	return availableStaff, nil
+}
+
+func (s *ManagerService) AssignServiceRequest(reqID string, empID string) error {
+	req, err := s.serviceRequestRepo.GetServiceRequestByReqID(reqID)
+	if err != nil {
+		return err
+	}
+	req.AssignedTo = empID
+	req.IsAssigned = true
+
+	emp, err := s.userRepo.GetUserByID(empID)
+	if err != nil {
+		return err
+	}
+	emp.Available = false
+	if err := s.userRepo.UpdateUser(emp); err != nil {
+		return err
+	}
+
+	return s.serviceRequestRepo.UpdateServiceRequest(req)
+}

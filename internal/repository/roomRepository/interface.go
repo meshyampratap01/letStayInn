@@ -1,0 +1,16 @@
+//go:generate mockgen -source=interface.go -destination=../../mocks/mock_roomRepository.go -package=mocks
+package roomRepository
+
+import "github.com/meshyampratap01/letStayInn/internal/models"
+
+type IRoomRepository interface {
+	GetAllRooms() ([]models.Room, error)
+	GetRoomByNumber(nubmer int) (*models.Room, error)
+	SaveRoom(room *models.Room) error
+	SaveRooms(rooms []models.Room) error
+	GetAvailableRooms() ([]models.Room, error)
+	AddRoom(room models.Room) error
+	GetRoomNumberByBookingID(string) (string, error)
+	RoomExists(number int) (bool, error)
+	DeleteRoomByNumber(number int) error
+}

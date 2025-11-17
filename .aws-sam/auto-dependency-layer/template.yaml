@@ -1,0 +1,152 @@
+Transform: AWS::Serverless-2016-10-31
+Globals:
+  Function:
+    Architectures:
+    - arm64
+    Timeout: 200
+    Handler: main.go
+    Runtime: provided.al2023
+Resources:
+  Api:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: v1
+      Cors:
+        AllowMethods: '''GET,POST,PUT,DELETE,OPTIONS,PATCH'''
+        AllowHeaders: '''Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'''
+        AllowOrigin: '''*'''
+  Login:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: go1.x
+      SamResourceId: Login
+    Properties:
+      CodeUri: Login
+      Events:
+        ApiEvents:
+          Type: Api
+          Properties:
+            Method: post
+            Path: /auth/login
+            RestApiId:
+              Ref: Api
+      Policies:
+      - DynamoDBCrudPolicy:
+          TableName: letstayinn
+      - Statement:
+        - Effect: Allow
+          Action:
+          - dynamodb:PartiQLSelect
+          - dynamodb:PartiQLInsert
+          - dynamodb:PartiQLUpdate
+          - dynamodb:PartiQLDelete
+          Resource:
+            Fn::Sub: arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/letstayinn
+  Signup:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: go1.x
+      SamResourceId: Signup
+    Properties:
+      CodeUri: Signup
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Method: post
+            Path: /auth/signup
+            RestApiId:
+              Ref: Api
+      Policies:
+      - DynamoDBCrudPolicy:
+          TableName: letstayinn
+      - Statement:
+        - Effect: Allow
+          Action:
+          - dynamodb:PartiQLSelect
+          - dynamodb:PartiQLInsert
+          - dynamodb:PartiQLUpdate
+          - dynamodb:PartiQLDelete
+          Resource:
+            Fn::Sub: arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/letstayinn
+  GetRoms:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: go1.x
+      SamResourceId: GetRoms
+    Properties:
+      CodeUri: GetRoms
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Method: get
+            Path: /rooms
+            RestApiId:
+              Ref: Api
+      Policies:
+      - DynamoDBCrudPolicy:
+          TableName: letstayinn
+      - Statement:
+        - Effect: Allow
+          Action:
+          - dynamodb:PartiQLSelect
+          - dynamodb:PartiQLInsert
+          - dynamodb:PartiQLUpdate
+          - dynamodb:PartiQLDelete
+          Resource:
+            Fn::Sub: arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/letstayinn
+  AddRoom:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: go1.x
+      SamResourceId: AddRoom
+    Properties:
+      CodeUri: AddRoom
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Method: post
+            Path: /rooms
+            RestApiId:
+              Ref: Api
+      Policies:
+      - DynamoDBCrudPolicy:
+          TableName: letstayinn
+      - Statement:
+        - Effect: Allow
+          Action:
+          - dynamodb:PartiQLSelect
+          - dynamodb:PartiQLInsert
+          - dynamodb:PartiQLUpdate
+          - dynamodb:PartiQLDelete
+          Resource:
+            Fn::Sub: arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/letstayinn
+  UpdateRoom:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: go1.x
+      SamResourceId: UpdateRoom
+    Properties:
+      CodeUri: UpdateRoom
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Method: put
+            Path: /rooms/{roomNum}
+            RestApiId:
+              Ref: Api
+      Policies:
+      - DynamoDBCrudPolicy:
+          TableName: letstayinn
+      - Statement:
+        - Effect: Allow
+          Action:
+          - dynamodb:PartiQLSelect
+          - dynamodb:PartiQLInsert
+          - dynamodb:PartiQLUpdate
+          - dynamodb:PartiQLDelete
+          Resource:
+            Fn::Sub: arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/letstayinn
