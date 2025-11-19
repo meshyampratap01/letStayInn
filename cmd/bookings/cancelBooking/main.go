@@ -13,6 +13,7 @@ import (
 	corsmiddleware "github.com/meshyampratap01/letStayInn/internal/middleware/corsMiddleware"
 	"github.com/meshyampratap01/letStayInn/internal/repository/bookingRepository"
 	"github.com/meshyampratap01/letStayInn/internal/repository/roomRepository"
+	"github.com/meshyampratap01/letStayInn/internal/repository/serviceRequestRepository"
 	"github.com/meshyampratap01/letStayInn/internal/repository/userRepository"
 	"github.com/meshyampratap01/letStayInn/internal/response"
 	"github.com/meshyampratap01/letStayInn/internal/services/bookingService"
@@ -29,7 +30,8 @@ func init() {
 	bookingRepo := bookingRepository.NewBookingRepo(dynamoDB, tableName)
 	roomRepo := roomRepository.NewRoomRepo(dynamoDB, tableName)
 	userRepo := userRepository.NewUserRepo(dynamoDB, tableName)
-	bookingSvc = bookingService.NewBookingService(bookingRepo, roomRepo, userRepo)
+	svcReqRepo := serviceRequestRepository.NewServiceRequestRepo(dynamoDB,tableName)
+	bookingSvc = bookingService.NewBookingService(bookingRepo, roomRepo, userRepo,svcReqRepo)
 }
 
 func main() {

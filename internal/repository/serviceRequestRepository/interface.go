@@ -10,4 +10,5 @@ type ServiceRequestRepository interface {
 	GetServiceRequestByReqID(id string) (*models.ServiceRequest, error)
 	UpdateServiceRequest(req *models.ServiceRequest) error
 	GetAssignedServiceRequests(employeeID string) ([]models.ServiceRequest, error)
+	DeleteRoomRequests(roomNum int) error
 }

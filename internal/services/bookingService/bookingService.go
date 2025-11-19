@@ -10,6 +10,7 @@ import (
 	"github.com/meshyampratap01/letStayInn/internal/models"
 	"github.com/meshyampratap01/letStayInn/internal/repository/bookingRepository"
 	"github.com/meshyampratap01/letStayInn/internal/repository/roomRepository"
+	"github.com/meshyampratap01/letStayInn/internal/repository/serviceRequestRepository"
 	"github.com/meshyampratap01/letStayInn/internal/repository/userRepository"
 	"github.com/meshyampratap01/letStayInn/internal/utils"
 	"github.com/meshyampratap01/letStayInn/internal/validators"
@@ -19,13 +20,15 @@ type BookingService struct {
 	bookingRepo bookingRepository.BookingRepository
 	roomRepo    roomRepository.IRoomRepository
 	userRepo    userRepository.UserRepository
+	serviceRepo	serviceRequestRepository.ServiceRequestRepository
 }
 
-func NewBookingService(bookingRepo bookingRepository.BookingRepository, roomRepo roomRepository.IRoomRepository, userRepo userRepository.UserRepository) IBookingService {
+func NewBookingService(bookingRepo bookingRepository.BookingRepository, roomRepo roomRepository.IRoomRepository, userRepo userRepository.UserRepository,serviceRepo	serviceRequestRepository.ServiceRequestRepository) IBookingService {
 	return &BookingService{
 		bookingRepo: bookingRepo,
 		roomRepo:    roomRepo,
 		userRepo:    userRepo,
+		serviceRepo: serviceRepo,
 	}
 }
 
@@ -101,6 +104,11 @@ func (s *BookingService) CancelBooking(ctx context.Context, bookingID string) er
 		return errors.New("booking not found or already cancelled")
 	}
 
+	err = s.serviceRepo.DeleteRoomRequests(booking.RoomNum)
+	if err!= nil{
+		return err
+	}
+
 	booking.Status = models.BookingStatusCancelled
 	if err := s.bookingRepo.UpdateBooking(*booking); err != nil {
 		return err
@@ -118,6 +126,7 @@ func (s *BookingService) CancelBooking(ctx context.Context, bookingID string) er
 	if err := s.roomRepo.SaveRoom(room); err != nil {
 		return err
 	}
+
 
 	return nil
 }

@@ -442,3 +442,66 @@ func (r *ServiceRequestRepo) UpdateIsAssigned(reqID string, employeeID string, i
 
 	return err
 }
+
+func (r *ServiceRequestRepo) DeleteRoomRequests(roomNum int) error {
+	// Query Room partition to get all service requests for this room
+	statement := "SELECT * FROM " + r.tableName + " WHERE pk = ?"
+
+	result, err := r.db.ExecuteStatement(context.Background(), &dynamodb.ExecuteStatementInput{
+		Statement: &statement,
+		Parameters: []types.AttributeValue{
+			&types.AttributeValueMemberS{Value: fmt.Sprintf("%d", roomNum)},
+		},
+	})
+
+	if err != nil {
+		return err
+	}
+
+	if len(result.Items) == 0 {
+		// No requests to delete
+		return nil
+	}
+
+	// Delete each request from both partitions
+	for _, item := range result.Items {
+		var tempReq struct {
+			ID string `dynamodbav:"id"`
+		}
+
+		err := attributevalue.UnmarshalMap(item, &tempReq)
+		if err != nil {
+			continue
+		}
+
+		// Delete from ServiceRequests partition
+		deleteStatement1 := "DELETE FROM " + r.tableName + " WHERE pk = ? AND sk = ?"
+		_, err = r.db.ExecuteStatement(context.Background(), &dynamodb.ExecuteStatementInput{
+			Statement: &deleteStatement1,
+			Parameters: []types.AttributeValue{
+				&types.AttributeValueMemberS{Value: "ServiceRequests"},
+				&types.AttributeValueMemberS{Value: "service#" + tempReq.ID},
+			},
+		})
+
+		if err != nil {
+			return err
+		}
+
+		// Delete from Room partition
+		deleteStatement2 := "DELETE FROM " + r.tableName + " WHERE pk = ? AND sk = ?"
+		_, err = r.db.ExecuteStatement(context.Background(), &dynamodb.ExecuteStatementInput{
+			Statement: &deleteStatement2,
+			Parameters: []types.AttributeValue{
+				&types.AttributeValueMemberS{Value: fmt.Sprintf("%d", roomNum)},
+				&types.AttributeValueMemberS{Value: "service#" + tempReq.ID},
+			},
+		})
+
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}

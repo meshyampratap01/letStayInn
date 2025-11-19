@@ -31,7 +31,7 @@ func init() {
 	bookingRepo := bookingRepository.NewBookingRepo(dynamoDB, tableName)
 	roomRepo := roomRepository.NewRoomRepo(dynamoDB, tableName)
 	userRepo := userRepository.NewUserRepo(dynamoDB, tableName)
-	bookingSvc = bookingService.NewBookingService(bookingRepo, roomRepo, userRepo)
+	bookingSvc = bookingService.NewBookingService(bookingRepo, roomRepo, userRepo,nil)
 }
 
 func main() {
