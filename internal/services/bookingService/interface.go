@@ -16,4 +16,5 @@ type IBookingService interface {
 	GetActiveBookings() ([]models.Booking, error)
 	GetBookingIDByRoomNumber(roomNumber int) (string, error)
 	IsRoomBooked(roomNumber int) (bool, error)
+	UpdateCompletedBookings() error
 }

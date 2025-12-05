@@ -383,3 +383,67 @@ func (r *BookingRepo) CheckRoomBooked(roomNumber int) (bool, error) {
 
 	return cr.Count > 0, nil
 }
+
+func (r *BookingRepo) GetExpiredBookings() ([]models.Booking, error) {
+	statement := "SELECT * FROM " + r.tableName + " WHERE pk = ? AND status = ?"
+
+	result, err := r.db.ExecuteStatement(context.Background(), &dynamodb.ExecuteStatementInput{
+		Statement: &statement,
+		Parameters: []types.AttributeValue{
+			&types.AttributeValueMemberS{Value: "Bookings"},
+			&types.AttributeValueMemberS{Value: models.BookingStatusBooked},
+		},
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	if len(result.Items) == 0 {
+		return []models.Booking{}, nil
+	}
+
+	var expiredBookings []models.Booking
+	currentTime := time.Now()
+
+	for _, item := range result.Items {
+		type tempBooking struct {
+			ID       string `dynamodbav:"id"`
+			UserID   string `dynamodbav:"user_id"`
+			RoomID   string `dynamodbav:"room_id"`
+			RoomNum  int    `dynamodbav:"room_num"`
+			CheckIn  string `dynamodbav:"check_in"`
+			CheckOut string `dynamodbav:"check_out"`
+			Status   string `dynamodbav:"status"`
+			FoodReq  bool   `dynamodbav:"food_req"`
+			CleanReq bool   `dynamodbav:"clean_req"`
+		}
+
+		var temp tempBooking
+		err := attributevalue.UnmarshalMap(item, &temp)
+		if err != nil {
+			return nil, err
+		}
+
+		layout := "2006-01-02 15:04:05.999999999 -0700 MST"
+		checkOutTime, _ := time.Parse(layout, temp.CheckOut)
+
+		if checkOutTime.Before(currentTime) {
+			checkInTime, _ := time.Parse(layout, temp.CheckIn)
+			booking := models.Booking{
+				ID:       temp.ID,
+				UserID:   temp.UserID,
+				RoomID:   temp.RoomID,
+				RoomNum:  temp.RoomNum,
+				CheckIn:  checkInTime,
+				CheckOut: checkOutTime,
+				Status:   temp.Status,
+				FoodReq:  temp.FoodReq,
+				CleanReq: temp.CleanReq,
+			}
+			expiredBookings = append(expiredBookings, booking)
+		}
+	}
+
+	return expiredBookings, nil
+}

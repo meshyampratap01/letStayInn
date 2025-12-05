@@ -100,10 +100,13 @@ func (s *UserService) CreateEmployee(name, email, password string, role models.R
 		return models.User{}, fmt.Errorf("invalid role for employee")
 	}
 
+	email = strings.ToLower(email)
+	
 	users, err := s.userRepo.GetAllUsers()
 	if err != nil {
 		return models.User{}, fmt.Errorf("failed to fetch users: %v", err)
 	}
+
 	for _, u := range users {
 		if u.Email == email {
 			return models.User{}, fmt.Errorf("email already in use")

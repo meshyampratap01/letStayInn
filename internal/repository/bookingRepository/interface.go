@@ -11,4 +11,5 @@ type BookingRepository interface {
 	UpdateBooking(updated models.Booking) error
 	GetBookingByID(string) (*models.Booking, error)
 	CheckRoomBooked(roomNumber int) (bool, error)
+	GetExpiredBookings() ([]models.Booking, error) 
 }

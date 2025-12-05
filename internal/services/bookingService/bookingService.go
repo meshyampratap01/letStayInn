@@ -195,3 +195,47 @@ func (s *BookingService) GetBookingIDByRoomNumber(roomNumber int) (string, error
 func (bs *BookingService) IsRoomBooked(roomNumber int) (bool, error) {
 	return bs.bookingRepo.CheckRoomBooked(roomNumber)
 }
+
+
+func (s *BookingService) UpdateCompletedBookings() error {
+	expiredBookings, err := s.bookingRepo.GetExpiredBookings()
+	if err != nil {
+		return fmt.Errorf("failed to get expired bookings: %w", err)
+	}
+
+	if len(expiredBookings) == 0 {
+		return nil
+	}
+
+	for _, booking := range expiredBookings {
+		booking.Status = models.BookingStatusCompleted
+		if err := s.bookingRepo.UpdateBooking(booking); err != nil {
+			continue
+		}
+
+		room, err := s.roomRepo.GetRoomByNumber(booking.RoomNum)
+		if err != nil {
+			fmt.Printf("failed to get room %d for booking %s: %v\n", booking.RoomNum, booking.ID, err)
+			continue
+		}
+
+		if room == nil {
+			fmt.Printf("room %d not found for booking %s\n", booking.RoomNum, booking.ID)
+			continue
+		}
+
+		room.IsAvailable = true
+		if err := s.roomRepo.SaveRoom(room); err != nil {
+			fmt.Printf("failed to save room %d for booking %s: %v\n", booking.RoomNum, booking.ID, err)
+			continue
+		}
+
+		err = s.serviceRepo.DeleteRoomRequests(booking.RoomNum)
+		if err != nil {
+			fmt.Printf("failed to delete service requests for room %d (booking %s): %v\n", booking.RoomNum, booking.ID, err)
+			continue
+		}
+	}
+
+	return nil
+}

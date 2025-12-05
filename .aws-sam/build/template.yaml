@@ -609,3 +609,38 @@ Resources:
           - dynamodb:PartiQLDelete
           Resource:
             Fn::Sub: arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/letstayinn
+  UpdateBookingsAsCompleted:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: go1.x
+      SamResourceId: UpdateBookingsAsCompleted
+    Properties:
+      CodeUri: UpdateBookingsAsCompleted
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Method: put
+            Path: /bookings/update/completed
+            RestApiId:
+              Ref: Api
+        DailySchedule:
+          Type: ScheduleV2
+          Properties:
+            Name: UpdateBookingsDaily1AM
+            Description: Invoke UpdateBookingsAsCompleted Lambda daily at 1 AM IST
+            ScheduleExpression: cron(0 1 * * ? *)
+            ScheduleExpressionTimezone: Asia/Kolkata
+            State: ENABLED
+      Policies:
+      - DynamoDBCrudPolicy:
+          TableName: letstayinn
+      - Statement:
+        - Effect: Allow
+          Action:
+          - dynamodb:PartiQLSelect
+          - dynamodb:PartiQLInsert
+          - dynamodb:PartiQLUpdate
+          - dynamodb:PartiQLDelete
+          Resource:
+            Fn::Sub: arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/letstayinn
